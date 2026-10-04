@@ -170,7 +170,43 @@ for (const [name, values] of enums) {
 }
 out.push("");
 
-for (const model of models) {
+/**
+ * Tables in dependency order.
+ *
+ * Foreign keys are declared inline, so a referenced table has to exist before
+ * the one pointing at it. Following schema.prisma's model order instead broke
+ * a fresh `npm run setup` as soon as a model was declared above one it
+ * references (product_events before projects). Self-references are ignored;
+ * a genuine cycle cannot be expressed with inline constraints, so it throws
+ * rather than emitting SQL that fails halfway through.
+ */
+function dependencyOrder(list) {
+  const byName = new Map(list.map((model) => [model.name, model]));
+  const ordered = [];
+  const state = new Map();
+
+  const visit = (model, path) => {
+    if (state.get(model.name) === "done") return;
+    if (state.get(model.name) === "visiting") {
+      throw new Error(`Foreign key cycle: ${[...path, model.name].join(" -> ")}`);
+    }
+
+    state.set(model.name, "visiting");
+    for (const fk of model.foreignKeys) {
+      if (fk.target === model.name) continue;
+      const target = byName.get(fk.target);
+      if (!target) throw new Error(`Relation points at unknown model ${fk.target}`);
+      visit(target, [...path, model.name]);
+    }
+    state.set(model.name, "done");
+    ordered.push(model);
+  };
+
+  for (const model of list) visit(model, []);
+  return ordered;
+}
+
+for (const model of dependencyOrder(models)) {
   const columns = model.fields.map((field) => {
     const nullable = field.optional ? "" : " NOT NULL";
     const primary = field.isId ? " PRIMARY KEY" : "";

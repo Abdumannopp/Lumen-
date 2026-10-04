@@ -82,23 +82,6 @@ CREATE TABLE IF NOT EXISTS "audit_events" (
 CREATE INDEX IF NOT EXISTS "audit_events_workspaceId_createdAt_idx" ON "audit_events"("workspaceId", "createdAt");
 CREATE INDEX IF NOT EXISTS "audit_events_actorId_idx" ON "audit_events"("actorId");
 
-CREATE TABLE IF NOT EXISTS "product_events" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "workspaceId" TEXT NOT NULL,
-    "userId" TEXT,
-    "projectId" TEXT,
-    "eventName" TEXT NOT NULL,
-    "metadata" JSONB,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "product_events_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "product_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "product_events_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS "product_events_workspaceId_createdAt_idx" ON "product_events"("workspaceId", "createdAt");
-CREATE INDEX IF NOT EXISTS "product_events_eventName_createdAt_idx" ON "product_events"("eventName", "createdAt");
-CREATE INDEX IF NOT EXISTS "product_events_workspaceId_eventName_createdAt_idx" ON "product_events"("workspaceId", "eventName", "createdAt");
-
 CREATE TABLE IF NOT EXISTS "projects" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "workspaceId" TEXT NOT NULL,
@@ -119,6 +102,23 @@ CREATE TABLE IF NOT EXISTS "projects" (
 CREATE INDEX IF NOT EXISTS "projects_workspaceId_idx" ON "projects"("workspaceId");
 CREATE INDEX IF NOT EXISTS "projects_archivedAt_idx" ON "projects"("archivedAt");
 CREATE INDEX IF NOT EXISTS "projects_createdAt_idx" ON "projects"("createdAt");
+
+CREATE TABLE IF NOT EXISTS "product_events" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "workspaceId" TEXT NOT NULL,
+    "userId" TEXT,
+    "projectId" TEXT,
+    "eventName" TEXT NOT NULL,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "product_events_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "product_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "product_events_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "product_events_workspaceId_createdAt_idx" ON "product_events"("workspaceId", "createdAt");
+CREATE INDEX IF NOT EXISTS "product_events_eventName_createdAt_idx" ON "product_events"("eventName", "createdAt");
+CREATE INDEX IF NOT EXISTS "product_events_workspaceId_eventName_createdAt_idx" ON "product_events"("workspaceId", "eventName", "createdAt");
 
 CREATE TABLE IF NOT EXISTS "business_profiles" (
     "id" TEXT NOT NULL PRIMARY KEY,

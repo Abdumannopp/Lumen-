@@ -106,6 +106,16 @@ counts and checks for orphans afterwards. Your old file is left where it is.
 | `npm run db:deploy`   | Apply migrations in CI/production                |
 | `npm run db:studio`   | Prisma Studio                                    |
 
+`prisma/migrations/20261001000000_baseline` creates the whole schema, so
+`npm run db:deploy` works on an empty database. A database that already has the
+schema — created with `npm run setup` or `npm run db:push` — must not run it
+again; mark it as applied once, then deploy as usual:
+
+```bash
+npx prisma migrate resolve --applied 20261001000000_baseline
+npm run db:deploy
+```
+
 ---
 
 ## Architecture

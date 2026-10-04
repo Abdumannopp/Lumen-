@@ -54,7 +54,29 @@ checkeq "outcome telemetry exists" "1" "$($PSQL "SELECT count(*) FROM product_ev
 
 # Learning data must remain project-scoped and auditable.
 checkeq "AI runs remain project-scoped" "0" "$($PSQL "SELECT count(*) FROM agent_runs WHERE \"projectId\" <> '$PID';")"
-check "admin exposes evaluation surface" "Evaluation & learning" "$(curl -s -c "$JAR" -b "$JAR" "$BASE/admin")"
+# /admin is founder-only, and the suite account must stay a non-founder because
+# scripts/e2e-beta.sh asserts exactly that. So this signs in the first
+# FOUNDER_EMAILS address the same way e2e-beta.sh does — no invite, same
+# password — and leaves the suite account's own session untouched.
+FOUNDER_EMAIL=$(grep '^FOUNDER_EMAILS=' .env | head -1 | cut -d= -f2- | tr -d '"' | cut -d, -f1 | xargs)
+FOUNDER_JAR=/tmp/lumen-ai-learning-founder-jar.txt
+if [ -z "$FOUNDER_EMAIL" ]; then
+  echo "  FAIL  admin exposes evaluation surface (.env has no FOUNDER_EMAILS)"; fail=$((fail+1))
+else
+  rm -f "$FOUNDER_JAR"
+  (
+    LUMEN_TEST_EMAIL="$FOUNDER_EMAIL"
+    _lumen_post_form "$FOUNDER_JAR" /signup \
+      -F "email=$FOUNDER_EMAIL" -F "password=beta-suite-password-1234" -F "terms=on" -F "invite="
+    token=$(curl -s "$BASE/api/dev/confirm-link?email=$FOUNDER_EMAIL" | sed -n 's/.*"tokenHash":"\([^"]*\)".*/\1/p')
+    if [ -n "$token" ]; then
+      curl -s -c "$FOUNDER_JAR" -b "$FOUNDER_JAR" "$BASE/auth/confirm?token_hash=$token&type=signup" -o /dev/null
+    else
+      _lumen_post_form "$FOUNDER_JAR" /login -F "email=$FOUNDER_EMAIL" -F "password=beta-suite-password-1234"
+    fi
+  )
+  check "admin exposes evaluation surface" "Evaluation &amp; learning" "$(curl -s -c "$FOUNDER_JAR" -b "$FOUNDER_JAR" "$BASE/admin")"
+fi
 
 $PSQL "DELETE FROM projects WHERE id='$PID';" > /dev/null
 

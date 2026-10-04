@@ -52,12 +52,25 @@ send() {
 }
 
 # event <event-id> <type> <status> [workspace-id] [subscription-id]
-EVENT_SEQ=0
+#
+# Events default to an occurred_at that advances one minute per call from
+# EVENT_CLOCK, and to the EVENT_PERIOD_* billing period. Section 9 moves the
+# subscription to a later period; the clock moves with it afterwards, or the
+# out-of-order guard would rightly ignore every later event as stale.
+EVENT_SEQ_FILE=/tmp/lumen-billing-event-seq
+rm -f "$EVENT_SEQ_FILE"
+EVENT_CLOCK="2026-08-24 00:00:00 UTC"
+EVENT_PERIOD_START="2026-08-24T00:00:00Z"
+EVENT_PERIOD_END="2026-09-24T00:00:00Z"
 event() {
-  local eid="$1" type="$2" status="$3" ws="${4:-}" sub="${5:-sub_lumen_test}" occurred="${6:-}" starts="${7:-2026-08-24T00:00:00Z}" ends="${8:-2026-09-24T00:00:00Z}"
+  local eid="$1" type="$2" status="$3" ws="${4:-}" sub="${5:-sub_lumen_test}" occurred="${6:-}" starts="${7:-$EVENT_PERIOD_START}" ends="${8:-$EVENT_PERIOD_END}"
   local custom="null" canceled="null"
-  EVENT_SEQ=$((EVENT_SEQ + 1))
-  [ -z "$occurred" ] && occurred=$(date -u -d "2026-08-24 00:00:00 UTC + $EVENT_SEQ minutes" +%Y-%m-%dT%H:%M:%SZ)
+  # event() always runs inside $(...), a subshell, so a shell variable would
+  # never advance and every event would carry the same occurred_at. The
+  # counter lives in a file for that reason.
+  EVENT_SEQ=$(( $(cat "$EVENT_SEQ_FILE" 2>/dev/null || echo 0) + 1 ))
+  echo "$EVENT_SEQ" > "$EVENT_SEQ_FILE"
+  [ -z "$occurred" ] && occurred=$(date -u -d "$EVENT_CLOCK + $EVENT_SEQ minutes" +%Y-%m-%dT%H:%M:%SZ)
   [ -n "$ws" ] && custom="{\"workspaceId\":\"$ws\"}"
   # Paddle sends canceled_at on a cancellation, so the fixture does too.
   if [ "$status" = "canceled" ]; then
@@ -135,23 +148,23 @@ checkeq "and the meter was not reset" "7" "$($PSQL "SELECT used FROM entitlement
 
 echo "===== 7. A CRASHED IN-PROGRESS EVENT IS RECOVERABLE ====="
 $PSQL "INSERT INTO webhook_events (id,provider,\"providerEventId\",type,status,result,\"receivedAt\",\"processedAt\") VALUES ('evt_crashed_row','paddle','evt_crashed','subscription.created','PROCESSED','Processing.',now() - interval '30 minutes',NULL);" > /dev/null
-CODE=$(send "$(event evt_crashed subscription.created active \"$WS\" sub_crashed)")
+CODE=$(send "$(event evt_crashed subscription.created active "$WS" sub_lumen_test)")
 checkeq "stale claim is retried" "200" "$CODE"
 checkeq "stale event becomes processed" "PROCESSED" "$($PSQL "SELECT status FROM webhook_events WHERE \"providerEventId\"='evt_crashed';")"
 checkeq "stale event gets completion time" "1" "$($PSQL "SELECT count(*) FROM webhook_events WHERE \"providerEventId\"='evt_crashed' AND \"processedAt\" IS NOT NULL;")"
 
 echo "===== 8. A FRESH IN-PROGRESS DUPLICATE KEEPS PADDLE RETRYABLE ====="
 $PSQL "INSERT INTO webhook_events (id,provider,\"providerEventId\",type,status,result,\"receivedAt\",\"processedAt\") VALUES ('evt_inflight_row','paddle','evt_inflight','subscription.created','PROCESSED','Processing.',now(),NULL);" > /dev/null
-CODE=$(send "$(event evt_inflight subscription.created active \"$WS\" sub_inflight)")
+CODE=$(send "$(event evt_inflight subscription.created active "$WS" sub_lumen_test)")
 checkeq "fresh in-flight duplicate is retriable" "500" "$CODE"
 $PSQL "UPDATE webhook_events SET \"receivedAt\"=now() - interval '30 minutes' WHERE \"providerEventId\"='evt_inflight';" > /dev/null
-CODE=$(send "$(event evt_inflight subscription.created active \"$WS\" sub_inflight)")
+CODE=$(send "$(event evt_inflight subscription.created active "$WS" sub_lumen_test)")
 checkeq "same event recovers after lease" "200" "$CODE"
 
 echo "===== 9. BILLING PERIOD RENEWAL RESETS THE METER ====="
-$PSQL "UPDATE entitlements SET used=123, "periodStart"='2026-08-24T00:00:00Z', "periodEnd"='2026-09-24T00:00:00Z' WHERE "workspaceId"='$WS';" > /dev/null
+$PSQL "UPDATE entitlements SET used=123, \"periodStart\"='2026-08-24T00:00:00Z', \"periodEnd\"='2026-09-24T00:00:00Z' WHERE \"workspaceId\"='$WS';" > /dev/null
 send "$(event evt_renewal subscription.updated active "$WS" sub_lumen_test 2026-09-24T01:00:00Z 2026-09-24T00:00:00Z 2026-10-24T00:00:00Z)" > /dev/null
-checkeq "new billing period is stored" "2026-10-24T00:00:00.000Z" "$($PSQL "SELECT \"periodEnd\"::text FROM entitlements WHERE \"workspaceId\"='$WS';")"
+checkeq "new billing period is stored" "2026-10-24 00:00:00" "$($PSQL "SELECT \"periodEnd\"::text FROM entitlements WHERE \"workspaceId\"='$WS';")"
 checkeq "monthly allowance resets on renewal" "0" "$($PSQL "SELECT used FROM entitlements WHERE \"workspaceId\"='$WS';")"
 
 echo "===== 10. AN OLDER EVENT CANNOT ROLL BACK THE CURRENT STATE ====="
@@ -159,6 +172,11 @@ CODE=$(send "$(event evt_old subscription.canceled canceled "$WS" sub_lumen_test
 checkeq "older event is acknowledged" "200" "$CODE"
 check "reported ignored" 'IGNORED' "$(cat /tmp/billing-body.txt)"
 checkeq "subscription stays active" "ACTIVE" "$($PSQL "SELECT status FROM subscriptions WHERE \"workspaceId\"='$WS';")"
+
+# Everything from here happens after the renewal in section 9.
+EVENT_CLOCK="2026-09-25 00:00:00 UTC"
+EVENT_PERIOD_START="2026-09-24T00:00:00Z"
+EVENT_PERIOD_END="2026-10-24T00:00:00Z"
 
 echo "===== 11. A FAILED PAYMENT KEEPS ACCESS, AND SAYS SO ====="
 # Paddle retries a failed charge for days. Cutting a paying customer off at the

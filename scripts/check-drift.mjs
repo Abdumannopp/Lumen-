@@ -16,9 +16,27 @@ import { Client } from "pg";
 
 const schema = readFileSync("prisma/schema.prisma", "utf8");
 
-const url = process.env.DATABASE_URL;
+// Same lookup as setup.mjs and db.sh: the environment first, then .env, so
+// `npm run db:drift` works right after `npm run setup` with nothing exported.
+function connectionString() {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  try {
+    return readFileSync(".env", "utf8")
+      .split("\n")
+      .find((line) => line.startsWith("DATABASE_URL"))
+      ?.split("=")
+      .slice(1)
+      .join("=")
+      .trim()
+      .replace(/^["']|["']$/g, "");
+  } catch {
+    return undefined;
+  }
+}
+
+const url = connectionString();
 if (!url) {
-  console.error("DATABASE_URL is not set.");
+  console.error("DATABASE_URL is not set and .env does not define it.");
   process.exit(1);
 }
 

@@ -23,7 +23,31 @@ Holat: `npm run lint`, `npm run typecheck`, `npm run build` — hammasi o'tadi (
 - Tip xatolari: `signals.ts`, `proof-of-value.ts`, Google `Json` maydonlari.
 - `.env.example`: ikki marta yozilgan `NEXT_PUBLIC_APP_URL` olib tashlandi; `AI_MODEL` izohga o'tkazildi (oldin u gemini/groq/openrouter ishlatganda ham anthropic modelini majburlardi).
 
-## Qolgan (tuzatib bo'lmadi)
-- `prisma` CLI → `@prisma/config` → `deepmerge-ts`, `mysql2` (yuqori). Hozir 7.x da tuzatish yo'q (`npm audit fix --force` prisma 6 ga tushiradi). Bu faqat CLI/build vaqtida ishlaydi, runtime'ga ta'sir qilmaydi. Prisma yangi versiyasini kuzating.
-- CSP `script-src 'unsafe-inline'` — nonce'ga o'tish arxitektura o'zgarishi talab qiladi.
-- DB'ga ulangan e2e testlar (`scripts/e2e-*.sh`) bu muhitda ishga tushirilmadi (PostgreSQL yo'q).
+## Ikkinchi bosqich
+
+### Ma'lumotlar bazasi
+- `prisma migrate deploy` bo'sh bazada yiqilardi: `prisma/migrations` da boshlang'ich migratsiya yo'q edi, birinchi migratsiya mavjud bo'lmagan `subscriptions` jadvalini o'zgartirmoqchi bo'lardi. `20261001000000_baseline` va `migration_lock.toml` qo'shildi. Tekshirildi: bo'sh bazada deploy o'tadi va sxemaga to'liq mos (`prisma migrate diff` — farq yo'q). Avval `npm run setup` bilan yaratilgan baza uchun README'da `migrate resolve` buyrug'i yozildi.
+- `npm run setup` bo'sh bazada yiqilardi (`relation "projects" does not exist`): `scripts/generate-sql.mjs` jadvallarni `schema.prisma` tartibida chiqarardi, `product_events` esa `projects` dan oldin turardi. Generator endi jadvallarni bog'liqlik tartibida chiqaradi; setup ikki marta ishga tushirilganda ham o'tadi.
+- `npm run db:drift` `.env` ni o'qimasdi, boshqa skriptlar kabi endi o'qiydi.
+
+### Xavfsizlik
+- CSP: `script-src` dan `'unsafe-inline'` olib tashlandi. `src/proxy.ts` har bir so'rov uchun nonce yaratadi, `'strict-dynamic'` bilan. Barcha HTML sahifalar allaqachon dinamik render qilinardi, shuning uchun hech narsa yo'qotilmadi. Siyosat bitta joyda: `src/config/csp.ts`. Chromium'da tekshirildi: sahifalar hydrate bo'ladi, CSP buzilishlari yo'q.
+- `npm overrides`: `deepmerge-ts` ^8.0.2 va `mysql2` ^3.24.5 (prisma CLI orqali kelardi). `npm audit --omit=dev`: 0 ta zaiflik. `prisma validate/generate/migrate` ishlashi tekshirildi.
+
+### Test skriptlari
+- `e2e-billing.sh`:
+  - SQL ichida qo'shtirnoqlar qochirilmagan edi (`column "workspaceid" does not exist`).
+  - Hodisa hisoblagichi `$(...)` subshell ichida oshirilardi va saqlanmasdi, shuning uchun hamma hodisa bir xil `occurred_at` bilan ketardi va ilova ularni (to'g'ri ravishda) eskirgan deb rad etardi. Hisoblagich faylga ko'chirildi; 9-bo'limdagi yangilanishdan keyingi hodisalar keyingi davrga o'tkazildi.
+  - 7–8-bo'limlarda `\"$WS\"` noto'g'ri JSON hosil qilardi (400) va ikkinchi obuna id'si ishlatilardi, ilova esa bitta workspace'ga ikkinchi faol obunani ataylab rad etadi.
+  - 9-bo'lim `timestamp::text` formatini noto'g'ri kutardi.
+- `e2e-ai-learning.sh`: HTML'da `&` belgisi `&amp;` bo'lib chiqadi. Bundan tashqari `/admin` ni suite akkaunti bilan ochardi, `e2e-beta.sh` esa aynan shu akkaunt founder emasligini tekshiradi. Endi `FOUNDER_EMAILS` dagi birinchi manzil bilan kiradi.
+
+### Tekshiruv natijalari
+- Toza PostgreSQL 16 bazada barcha 26 ta e2e to'plami (`scripts/e2e-*.sh`) — 0 ta xato. Test muhiti: `AUTH_PROVIDER=local`, `AI_PROVIDER=mock`, `FOUNDER_EMAILS="founder@lumen.test"`, `PADDLE_NOTIFICATION_SECRET` o'rnatilgan, checkout (narx + client token) o'rnatilmagan.
+- Narx tekshiruvi qo'lda sinaldi (`PADDLE_PRICE_ID` va client token bilan): boshqa narx — `IGNORED`, obuna yaratilmaydi; to'g'ri narx — `PROCESSED`.
+- 2 MB chunked body webhook'ga — 413.
+- Chromium (Playwright): ochiq va tizimga kirgan sahifalar, mobil menyu, cookie banner — konsol xatolari va CSP buzilishlari yo'q.
+
+## Qolgan
+- `eslint-config-next` → `fast-glob` → `micromatch` → `braces` (yuqori, faqat dev). Tuzatilgan `braces` versiyasi hali yo'q; lint vaqtidagina ishlaydi.
+- `style-src 'unsafe-inline'` ataylab qoldirildi (Radix UI `style` atributini JS orqali yozadi).
