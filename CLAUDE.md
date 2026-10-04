@@ -17,11 +17,15 @@ English UI; invite-only beta.
 Do not add Ads, GA4, CRM, social publishing, multiple plans or additional UI
 languages.
 
-Known discrepancy, undecided: a read-only Google Analytics 4 + Search Console
-integration already exists (`src/lib/integrations/google/`, `google_connections`
-table, `/api/integrations/google/*`). It is inert unless `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET` and `INTEGRATION_ENCRYPTION_KEY` are all set. Do not
-extend it; whether it stays in the beta is the founder's call.
+The Google Analytics 4 / Search Console integration that once existed was
+removed on 2026-10-05 by founder decision (migration
+`20261005_remove_google_integration` drops `google_connections`). Do not
+re-add it. Kept on purpose: `RecordSource.EXTERNAL` (an enum value cannot be
+dropped safely), `marketing_metrics.externalKey`, and old `product_events`
+rows named `analytics.google_connected` / `analytics.synced`. The
+`google.*` host match in `acquisition-capture.tsx` is search-engine referrer
+detection, and `GOOGLE_API_KEY` is the Gemini AI provider — neither is the
+integration.
 
 # Non-negotiable Security
 

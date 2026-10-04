@@ -790,10 +790,6 @@ coding agents at the version-accurate docs bundled in
 change; commit them to keep the tree clean.
 
 
-## Google integrations
-
-Lumen can connect a project to Google Analytics 4 and Google Search Console with read-only OAuth access. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `INTEGRATION_ENCRYPTION_KEY`, then register `/api/integrations/google/callback` as the OAuth redirect URI. See `GLOBAL_LAUNCH_PHASE_3.md` for the deployment checklist.
-
 ## Global growth engine
 
 Lumen now includes a deterministic Growth Pulse that compares two 14-day windows of recorded performance and feeds material changes into ASCEND and CADENCE. The product loop is designed to move from data to diagnosis to action rather than stopping at dashboards.

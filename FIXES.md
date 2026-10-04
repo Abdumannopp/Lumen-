@@ -63,3 +63,12 @@ Holat: `npm run lint`, `npm run typecheck`, `npm run build` — hammasi o'tadi (
 - `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` → `braces` (GHSA-vfj7-8cjw-p6xm). Tuzatilgan versiya mavjud emas — zaif diapazon `<=3.0.3`, eng oxirgi chiqarilgan versiya esa 3.0.3. Ishonchsiz fork bilan almashtirmadim.
 - Xavf yo'q: bu faqat lint vaqtida ishlaydigan dev paket, production'ga kirmaydi. U faqat sizning ESLint sozlamangizdagi `rootDir` glob'ini o'qiydi, foydalanuvchi kiritgan ma'lumotni emas.
 - CI'ga `npm audit --omit=dev --audit-level=high` qadami qo'shildi: production dependency'larida yangi zaiflik paydo bo'lsa, build to'xtaydi. `braces` uchun tuzatish chiqqach, `npm update` yetarli bo'ladi.
+
+## Google integratsiyasi olib tashlandi (2026-10-05)
+
+Founder qarori: GA4 va Search Console `CLAUDE.md` dagi MVP doirasiga kirmaydi.
+- O'chirildi: `src/lib/integrations/google/`, `/api/integrations/google/*`, `google-connection-card.tsx`, `/analytics` dagi karta va banner, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `INTEGRATION_ENCRYPTION_KEY`, `GOOGLE_CONNECTED` va `ANALYTICS_SYNCED` hodisa nomlari, `GoogleConnection` modeli, README bo'limi.
+- Yangi migratsiya `20261005_remove_google_integration`: `google_connections` jadvali va enum o'chadi (saqlangan OAuth tokenlari ham). Avval qo'llangan migratsiyalarga tegilmadi. Tekshirildi: toza bazada va eski jadvali bor bazada ishlaydi, keyin `migrate diff` — farq yo'q.
+- Ataylab qoldirildi: `RecordSource.EXTERNAL`, `marketing_metrics.externalKey`, eski `product_events` qatorlari (jumladan `analytics.google_connected`).
+- Yuqoridagi "Runtime bug'lar" va "Xavfsizlik" bo'limlaridagi Google bilan bog'liq tuzatishlar (env sxemasi, OAuth `state` ga `userId`, Json maydonlari) endi kerak emas: ularning kodi yo'q.
+- `GLOBAL_LAUNCH.md` dagi "Gate 3 — data connectivity" ro'yxati MVPdan keyingi yo'l xaritasi bo'lib qoldi, o'zgartirilmadi.

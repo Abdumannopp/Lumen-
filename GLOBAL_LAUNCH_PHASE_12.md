@@ -61,7 +61,7 @@ These are intentionally not claimed as completed because they depend on the real
 - [ ] Supabase production project configured and redirect URLs verified.
 - [ ] Paddle production seller, price, notifications endpoint, tax settings, and Customer Portal verified with a real test transaction.
 - [ ] Resend sending domain and sender identity verified.
-- [ ] Google Analytics 4 + Search Console production property verified.
+- [x] ~~Google Analytics 4 + Search Console production property verified.~~ Not applicable: the integration was removed from the product (2026-10-05).
 - [ ] Production database backup schedule and restore drill completed.
 - [ ] Error/uptime monitoring and alert routing connected to an operational channel.
 - [ ] Privacy policy, Terms, DPA/subprocessor disclosures, AI-provider disclosures, and cookie/marketing-consent posture reviewed by qualified counsel for launch jurisdictions.
