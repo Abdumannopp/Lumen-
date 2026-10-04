@@ -43,6 +43,29 @@ export const runtime = "nodejs";
 const MAX_WEBHOOK_BODY_BYTES = 1 * 1024 * 1024;
 const PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
 
+/** The body as UTF-8 text, or null once it exceeds `limit` bytes. */
+async function readBodyWithLimit(request: NextRequest, limit: number): Promise<string | null> {
+  if (!request.body) return "";
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    received += value.byteLength;
+    if (received > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 export async function POST(request: NextRequest) {
   const env = getServerEnv();
 
@@ -54,9 +77,12 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Payload too large", { status: 413 });
   }
 
-  // Read first, and once. The signature covers these exact bytes.
-  const rawBody = await request.text();
-  if (Buffer.byteLength(rawBody, "utf8") > MAX_WEBHOOK_BODY_BYTES) {
+  // Read first, and once. The signature covers these exact bytes. Streamed
+  // with a cap, because Content-Length is optional (chunked uploads omit it)
+  // and request.text() would buffer an arbitrarily large body before any
+  // size check could run.
+  const rawBody = await readBodyWithLimit(request, MAX_WEBHOOK_BODY_BYTES);
+  if (rawBody === null) {
     return new NextResponse("Payload too large", { status: 413 });
   }
 

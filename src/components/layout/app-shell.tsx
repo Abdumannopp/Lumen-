@@ -12,10 +12,14 @@ import { Separator } from "@/components/ui/separator";
 export function AppShell({ children, topbarSlot, accountSlot, betaSlot, founder }: { children: React.ReactNode; topbarSlot?: React.ReactNode; accountSlot?: React.ReactNode; betaSlot?: React.ReactNode; founder?: boolean; }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
+  const [drawerPath, setDrawerPath] = useState(pathname);
 
-  useEffect(() => {
+  // Close the drawer when navigation lands, adjusting state during render
+  // rather than in an effect (https://react.dev/learn/you-might-not-need-an-effect).
+  if (drawerPath !== pathname) {
+    setDrawerPath(pathname);
     setDrawerOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     if (!drawerOpen) return;

@@ -8,7 +8,6 @@ const rate = (value: number | null) => value === null ? "—" : `${value}%`;
 const days = (value: number | null) => value === null ? "—" : `${value}d`;
 
 export function ProductAnalytics({ analytics }: { analytics: ProductAnalyticsView }) {
-  const latest = analytics.retention.at(-1);
   const latestEligibleW4 = [...analytics.retention].reverse().find((row) => row.w4Rate !== null);
 
   return (

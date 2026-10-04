@@ -15,11 +15,13 @@ export function SourceBadge({
   source,
   agent,
 }: {
-  source: "AI" | "MANUAL" | "EDITED";
+  /** Mirrors the `RecordSource` enum in prisma/schema.prisma. */
+  source: "AI" | "MANUAL" | "EDITED" | "EXTERNAL";
   /** Displayed for AI-written records. Falls back to "AI". */
   agent?: string;
 }) {
   if (source === "AI") return <Badge variant="accent">{agent ?? "AI"}</Badge>;
   if (source === "EDITED") return <Badge>Edited</Badge>;
+  if (source === "EXTERNAL") return <Badge>Imported</Badge>;
   return <Badge>Yours</Badge>;
 }

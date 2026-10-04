@@ -32,7 +32,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    await requireProject(state.projectId);
+    const { userId } = await requireProject(state.projectId);
+    // The state cookie proves the same browser; this proves the same account,
+    // so a session switched mid-flow cannot attach someone else's Google data.
+    if (userId !== state.userId) {
+      return NextResponse.redirect(new URL(`/analytics?google=invalid-state`, url.origin));
+    }
     const tokens = await exchangeGoogleCode(code);
     if (!tokens.refreshToken) {
       return NextResponse.redirect(new URL(`/analytics?google=no-refresh-token`, url.origin));

@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { requireWorkspace } from "@/lib/auth/dal";
 import { clientEnv } from "@/lib/env";
 import { createInvite, isFounderEmail } from "@/lib/beta/invites";
+import { PRODUCT_EVENTS, trackProductEvent } from "@/lib/product-analytics/events";
 
 /**
  * Founder controls.

@@ -1,4 +1,4 @@
-import { BrainCircuit, CheckCircle2, Gauge, MessageSquareText } from "lucide-react";
+import { BrainCircuit, CheckCircle2, Gauge, ListChecks, MessageSquareText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

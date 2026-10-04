@@ -82,6 +82,23 @@ CREATE TABLE IF NOT EXISTS "audit_events" (
 CREATE INDEX IF NOT EXISTS "audit_events_workspaceId_createdAt_idx" ON "audit_events"("workspaceId", "createdAt");
 CREATE INDEX IF NOT EXISTS "audit_events_actorId_idx" ON "audit_events"("actorId");
 
+CREATE TABLE IF NOT EXISTS "product_events" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "workspaceId" TEXT NOT NULL,
+    "userId" TEXT,
+    "projectId" TEXT,
+    "eventName" TEXT NOT NULL,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "product_events_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "product_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "product_events_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "product_events_workspaceId_createdAt_idx" ON "product_events"("workspaceId", "createdAt");
+CREATE INDEX IF NOT EXISTS "product_events_eventName_createdAt_idx" ON "product_events"("eventName", "createdAt");
+CREATE INDEX IF NOT EXISTS "product_events_workspaceId_eventName_createdAt_idx" ON "product_events"("workspaceId", "eventName", "createdAt");
+
 CREATE TABLE IF NOT EXISTS "projects" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "workspaceId" TEXT NOT NULL,
@@ -102,23 +119,6 @@ CREATE TABLE IF NOT EXISTS "projects" (
 CREATE INDEX IF NOT EXISTS "projects_workspaceId_idx" ON "projects"("workspaceId");
 CREATE INDEX IF NOT EXISTS "projects_archivedAt_idx" ON "projects"("archivedAt");
 CREATE INDEX IF NOT EXISTS "projects_createdAt_idx" ON "projects"("createdAt");
-
-CREATE TABLE IF NOT EXISTS "product_events" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "workspaceId" TEXT NOT NULL,
-    "userId" TEXT,
-    "projectId" TEXT,
-    "eventName" TEXT NOT NULL,
-    "metadata" JSONB,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "product_events_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "product_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "product_events_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS "product_events_workspaceId_createdAt_idx" ON "product_events"("workspaceId", "createdAt");
-CREATE INDEX IF NOT EXISTS "product_events_eventName_createdAt_idx" ON "product_events"("eventName", "createdAt");
-CREATE INDEX IF NOT EXISTS "product_events_workspaceId_eventName_createdAt_idx" ON "product_events"("workspaceId", "eventName", "createdAt");
 
 CREATE TABLE IF NOT EXISTS "business_profiles" (
     "id" TEXT NOT NULL PRIMARY KEY,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS "business_profiles" (
     "completedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "business_profiles_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "business_profiles_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "business_profiles_projectId_key" ON "business_profiles"("projectId");
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS "agent_runs" (
     "idempotencyKey" TEXT,
     "promptVersion" TEXT,
     "schemaVersion" TEXT,
-    CONSTRAINT "agent_runs_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "agent_runs_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "agent_runs_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "agent_runs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS "conversations" (
     "title" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "conversations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "conversations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "conversations_projectId_updatedAt_idx" ON "conversations"("projectId", "updatedAt");
@@ -227,7 +227,7 @@ CREATE TABLE IF NOT EXISTS "strategies" (
     "currentVersionId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "strategies_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "strategies_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "strategies_projectId_key" ON "strategies"("projectId");
@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS "audience_segments" (
     "agentRunId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "audience_segments_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "audience_segments_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "audience_segments_projectId_priority_idx" ON "audience_segments"("projectId", "priority");
@@ -318,7 +318,7 @@ CREATE TABLE IF NOT EXISTS "competitors" (
     "marketingNotes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "competitors_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "competitors_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "competitors_projectId_createdAt_idx" ON "competitors"("projectId", "createdAt");
@@ -336,7 +336,7 @@ CREATE TABLE IF NOT EXISTS "market_insights" (
     "agentRunId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "market_insights_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "market_insights_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "market_insights_projectId_kind_idx" ON "market_insights"("projectId", "kind");
@@ -358,7 +358,7 @@ CREATE TABLE IF NOT EXISTS "content_items" (
     "agentRunId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "content_items_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "content_items_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "content_items_projectId_status_idx" ON "content_items"("projectId", "status");
@@ -387,7 +387,7 @@ CREATE TABLE IF NOT EXISTS "campaigns" (
     "agentRunId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "campaigns_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "campaigns_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "campaigns_projectId_status_idx" ON "campaigns"("projectId", "status");
@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS "budget_plans" (
     "agentRunId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "budget_plans_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "budget_plans_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "budget_plans_projectId_createdAt_idx" ON "budget_plans"("projectId", "createdAt");
@@ -431,7 +431,7 @@ CREATE TABLE IF NOT EXISTS "marketing_metrics" (
     "externalKey" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "marketing_metrics_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "marketing_metrics_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "marketing_metrics_externalKey_key" ON "marketing_metrics"("externalKey");
@@ -456,7 +456,7 @@ CREATE TABLE IF NOT EXISTS "recommendations" (
     "agentRunId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "recommendations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "recommendations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "recommendations_projectId_status_idx" ON "recommendations"("projectId", "status");
@@ -478,7 +478,7 @@ CREATE TABLE IF NOT EXISTS "experiments" (
     "recommendationId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "experiments_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "experiments_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "experiments_recommendationId_fkey" FOREIGN KEY ("recommendationId") REFERENCES "recommendations"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -499,7 +499,7 @@ CREATE TABLE IF NOT EXISTS "google_connections" (
     "lastError" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "google_connections_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "google_connections_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "google_connections_projectId_key" ON "google_connections"("projectId");
@@ -534,7 +534,7 @@ CREATE TABLE IF NOT EXISTS "weekly_plans" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "weekly_plans_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "weekly_plans_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "weekly_plans_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "weekly_plans_projectId_version_key" ON "weekly_plans"("projectId", "version");
@@ -613,6 +613,7 @@ CREATE TABLE IF NOT EXISTS "webhook_events" (
 
 CREATE UNIQUE INDEX IF NOT EXISTS "webhook_events_providerEventId_key" ON "webhook_events"("providerEventId");
 CREATE INDEX IF NOT EXISTS "webhook_events_type_receivedAt_idx" ON "webhook_events"("type", "receivedAt");
+CREATE INDEX IF NOT EXISTS "webhook_events_occurredAt_idx" ON "webhook_events"("occurredAt");
 
 CREATE TABLE IF NOT EXISTS "email_messages" (
     "id" TEXT NOT NULL PRIMARY KEY,

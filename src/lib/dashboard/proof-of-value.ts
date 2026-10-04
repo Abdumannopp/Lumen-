@@ -79,7 +79,7 @@ export async function getProofOfValue(projectId: string) {
   const currency = currencyValues.size === 1 ? [...currencyValues][0] : null;
   const mixedCurrency = currencyValues.size > 1 || comparison.recent.mixedCurrency || comparison.previous.mixedCurrency;
 
-  const movements = OBSERVED_METRICS.map((metric) => {
+  const movements = OBSERVED_METRICS.map((metric): ObservedMovement | null => {
     const previous = comparison.previous.totals[metric.key];
     const recent = comparison.recent.totals[metric.key];
 
@@ -98,7 +98,7 @@ export async function getProofOfValue(projectId: string) {
       changePct,
       unit: metric.unit,
       currency: metric.unit === "money" ? currency : null,
-    } satisfies ObservedMovement;
+    };
   }).filter((item): item is ObservedMovement => item !== null);
 
   movements.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));

@@ -136,6 +136,8 @@ export default async function DashboardPage() {
 
       <ExecutionMomentum momentum={momentum} />
 
+      <ProofOfValue proof={proof} />
+
       {!completion.isComplete && (
         <Card variant="aurora">
           <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">

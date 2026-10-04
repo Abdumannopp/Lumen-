@@ -218,6 +218,28 @@ export async function applyPaddleEvent(event: PaddleEvent): Promise<ApplyResult>
   const eventPriceId = priceIdFromEvent(event);
   const env = getServerEnv();
 
+  // A Paddle seller account can sell more than one product, and every one of
+  // them is delivered to this endpoint with a valid signature. Only the price
+  // this deployment sells may grant Lumen's paid allowance; anything else would
+  // let a cheaper unrelated purchase unlock the plan. Non-paid transitions
+  // (cancel, pause, past due) are still applied so access can only shrink.
+  if (
+    env.PADDLE_PRICE_ID &&
+    eventPriceId &&
+    eventPriceId !== env.PADDLE_PRICE_ID &&
+    PAID_STATUSES.includes(status)
+  ) {
+    logger.warn("Paddle webhook for an unexpected price ignored", {
+      eventType: event.event_type,
+      priceId: eventPriceId,
+    });
+    return {
+      status: "IGNORED",
+      result: "Subscription is for a price this deployment does not sell.",
+      workspaceId,
+    };
+  }
+
   const transactionResult = await db.$transaction(async (tx) => {
     const current = await tx.subscription.findUnique({
       where: { workspaceId },

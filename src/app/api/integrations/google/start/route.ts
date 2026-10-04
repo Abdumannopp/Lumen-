@@ -16,8 +16,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/analytics?google=not-configured`, url.origin));
   }
 
-  await requireProject(projectId);
-  const state = createGoogleState({ projectId, nonce: randomUUID() });
+  const { userId } = await requireProject(projectId);
+  const state = createGoogleState({ projectId, userId, nonce: randomUUID() });
   const env = getServerEnv();
   const jar = await cookies();
   jar.set("lumen.google_oauth_state", state, {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ACQUISITION_CONSENT_EVENT, CONSENT_COOKIE, CONSENT_MAX_AGE } from "@/config/consent";
@@ -19,12 +19,16 @@ function writeConsent(value: "accepted" | "declined") {
   window.dispatchEvent(new Event(ACQUISITION_CONSENT_EVENT));
 }
 
-export function CookieConsent() {
-  const [consent, setConsent] = useState<"accepted" | "declined" | null>(null);
+function subscribe(onChange: () => void) {
+  window.addEventListener(ACQUISITION_CONSENT_EVENT, onChange);
+  return () => window.removeEventListener(ACQUISITION_CONSENT_EVENT, onChange);
+}
 
-  useEffect(() => {
-    setConsent(readConsent());
-  }, []);
+export function CookieConsent() {
+  // The cookie is the source of truth; writeConsent() dispatches the event that
+  // re-reads it. The server cannot see document.cookie, so it renders as "no
+  // choice yet", exactly as before.
+  const consent = useSyncExternalStore(subscribe, readConsent, () => null);
 
   if (consent) return null;
 
@@ -38,10 +42,10 @@ export function CookieConsent() {
           Lumen uses a small first-party attribution cookie to understand which campaigns and referrals lead to signups. Product functionality works without it. See our <a className="underline underline-offset-4 hover:text-foreground" href="/privacy">privacy policy</a>.
         </p>
         <div className="flex shrink-0 gap-2">
-          <Button variant="outline" size="sm" onClick={() => { writeConsent("declined"); setConsent("declined"); }}>
+          <Button variant="outline" size="sm" onClick={() => writeConsent("declined")}>
             Decline
           </Button>
-          <Button size="sm" onClick={() => { writeConsent("accepted"); setConsent("accepted"); }}>
+          <Button size="sm" onClick={() => writeConsent("accepted")}>
             Allow attribution
           </Button>
         </div>

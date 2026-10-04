@@ -5,6 +5,8 @@ import { GOOGLE_SCOPES, requireGoogleConfig } from "@/lib/integrations/google/co
 
 export interface GoogleOAuthState {
   projectId: string;
+  /** The user who started the flow; the callback must be completed by them. */
+  userId: string;
   issuedAt: number;
   nonce: string;
 }
@@ -17,6 +19,7 @@ export function readGoogleState(value: string): GoogleOAuthState {
   const parsed = JSON.parse(decryptSecret(value)) as Partial<GoogleOAuthState>;
   if (
     typeof parsed.projectId !== "string" ||
+    typeof parsed.userId !== "string" ||
     typeof parsed.nonce !== "string" ||
     typeof parsed.issuedAt !== "number" ||
     Date.now() - parsed.issuedAt > 10 * 60 * 1000

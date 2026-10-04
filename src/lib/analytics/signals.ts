@@ -54,11 +54,10 @@ function makeSignal(input: {
   basedOn: string;
   threshold?: number;
 }): GrowthSignal | null {
-  const change =
-    input.current === null || input.previous === null
-      ? null
-      : changePercent(input.current, input.previous);
+  const { current, previous } = input;
+  if (current === null || previous === null) return null;
 
+  const change = changePercent(current, previous);
   if (change === null) return null;
   const threshold = input.threshold ?? 15;
   if (Math.abs(change) < threshold) return null;
@@ -69,8 +68,8 @@ function makeSignal(input: {
     key: input.key,
     title: input.title,
     metric: input.metric,
-    current: input.current,
-    previous: input.previous,
+    current,
+    previous,
     changePercent: Math.round(change * 10) / 10,
     direction,
     severity: severityFor(Math.abs(change)),

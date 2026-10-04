@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { projectInWorkspace, requireProject } from "@/lib/auth/dal";
 import { logger } from "@/lib/logger";
+import type { Prisma } from "@/generated/prisma/client";
 import { encryptSecret } from "@/lib/integrations/google/crypto";
 import { refreshGoogleAccessToken } from "@/lib/integrations/google/oauth";
 import { runGa4DailyReport, runSearchConsoleDailyReport, type AnalyticsPropertyOption, type SearchConsoleSiteOption } from "@/lib/integrations/google/api";
@@ -274,8 +275,20 @@ export async function storeGoogleConnection(params: {
   analyticsPropertyName?: string | null;
   searchConsoleSiteUrl?: string | null;
 }): Promise<void> {
-  const { projectId, refreshToken, scopes, analyticsProperties, searchConsoleSites } = params;
+  const { projectId, refreshToken, scopes } = params;
   const owned = await requireProject(projectId);
+
+  // Stored in Json columns. Copied into plain objects so Prisma's Json input
+  // type accepts them and nothing beyond the declared fields is persisted.
+  const analyticsProperties: Prisma.InputJsonValue = params.analyticsProperties.map((property) => ({
+    id: property.id,
+    name: property.name,
+    accountName: property.accountName,
+  }));
+  const searchConsoleSites: Prisma.InputJsonValue = params.searchConsoleSites.map((site) => ({
+    url: site.url,
+    ...(site.permissionLevel ? { permissionLevel: site.permissionLevel } : {}),
+  }));
 
   await db.googleConnection.upsert({
     where: { projectId },

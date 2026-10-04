@@ -63,7 +63,7 @@ async function findNameConflict(name: string, workspaceId: string, excludeId?: s
  * this row exist" — a question no action was actually asking.
  */
 async function ownedProject(projectId: string) {
-  const { workspaceId, userId } = await requireWorkspace();
+  const { workspaceId } = await requireWorkspace();
 
   return db.project.findFirst({ where: { id: projectId, workspaceId } });
 }
@@ -83,7 +83,7 @@ export async function createProjectAction(
   // Every business belongs to a cabinet. Which one comes from Membership, not
   // from the form — see src/lib/auth/dal.ts. Resolved before the name check,
   // because the name check is scoped to it.
-  const { workspaceId } = await requireWorkspace();
+  const { workspaceId, userId } = await requireWorkspace();
 
   try {
     if (await findNameConflict(parsed.data.name, workspaceId)) {

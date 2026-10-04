@@ -101,8 +101,8 @@ export async function generateRecommendationsAction(
     await db.recommendation.createMany({ data: rows });
 
     await trackProductEvent({
-      workspaceId: owned.workspaceId,
-      userId: owned.userId,
+      workspaceId: project.workspaceId,
+      userId: project.userId,
       projectId,
       eventName: PRODUCT_EVENTS.RECOMMENDATIONS_GENERATED,
       metadata: { count: rows.length },
