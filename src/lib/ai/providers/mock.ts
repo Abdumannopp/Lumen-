@@ -1,0 +1,458 @@
+import type {
+  AIProvider,
+  CompletionRequest,
+  CompletionResponse,
+} from "@/lib/ai/types";
+import { AIError } from "@/lib/ai/errors";
+
+/**
+ * Deterministic provider used by tests and local development.
+ *
+ * It exists so the whole pipeline — retries, backoff, timeouts, schema
+ * validation, run persistence — can be exercised without a network call, an API
+ * key, or a bill. Behaviour is scripted through `providerOptions.scenario`, and
+ * the counter is keyed per scenario run so "fail twice then succeed" is
+ * expressible.
+ */
+
+export type MockScenario =
+  /** Returns a valid, schema-shaped payload. */
+  | "ok"
+  /** Not JSON at all — exercises the parser. */
+  | "invalid-json"
+  /** Valid JSON of the wrong shape — exercises schema validation. */
+  | "schema-mismatch"
+  /** Throws a retryable error, then succeeds on the third attempt. */
+  | "fail-then-ok"
+  /** Always throws a retryable error — exercises attempt exhaustion. */
+  | "always-fail"
+  /** Throws a non-retryable error — must not be retried. */
+  | "fatal"
+  /** Never settles before the timeout fires. */
+  | "slow";
+
+const attemptCounters = new Map<string, number>();
+
+/** Tests reset between cases so counters cannot leak across them. */
+export function resetMockProvider() {
+  attemptCounters.clear();
+}
+
+export class MockProvider implements AIProvider {
+  readonly id = "mock";
+  readonly defaultModel = "mock-model-1";
+
+  async complete(request: CompletionRequest): Promise<CompletionResponse> {
+    const options = request.providerOptions ?? {};
+    const scenario = (options.scenario as MockScenario | undefined) ?? "ok";
+    const key = String(options.runKey ?? "default");
+
+    const attempt = (attemptCounters.get(key) ?? 0) + 1;
+    attemptCounters.set(key, attempt);
+
+    if (scenario === "slow") {
+      // Resolve only if the runtime's abort never fires, which it should.
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, 60_000);
+        request.signal?.addEventListener("abort", () => {
+          clearTimeout(timer);
+          reject(new Error("aborted"));
+        });
+      });
+    }
+
+    if (scenario === "always-fail") {
+      throw new AIError("Mock provider is unavailable.", {
+        retryable: true,
+        provider: this.id,
+      });
+    }
+
+    if (scenario === "fatal") {
+      throw new AIError("Mock provider rejected the request.", {
+        retryable: false,
+        provider: this.id,
+      });
+    }
+
+    if (scenario === "fail-then-ok" && attempt < 3) {
+      throw new AIError(`Mock transient failure (attempt ${attempt}).`, {
+        retryable: true,
+        provider: this.id,
+      });
+    }
+
+    if (scenario === "invalid-json") {
+      return {
+        text: "Sure! Here is the answer you asked for, in prose rather than JSON.",
+        usage: { promptTokens: 12, completionTokens: 14 },
+        model: request.model,
+      };
+    }
+
+    if (scenario === "schema-mismatch") {
+      return {
+        text: JSON.stringify({ unexpected: true }),
+        usage: { promptTokens: 12, completionTokens: 6 },
+        model: request.model,
+      };
+    }
+
+    // Shape the reply to whatever the caller expects. The assistant asks for a
+    // structured answer, the diagnostic probe for a simple echo; scripting both
+    // here keeps every consumer testable without a real provider.
+    const wantsAssistantShape = request.system.includes("LUMEN, a growth and marketing");
+    const wantsAtlasShape = request.system.includes("ATLAS, the marketing strategy agent");
+    const wantsPulseShape = request.system.includes("PULSE, the audience intelligence agent");
+    const wantsScoutShape = request.system.includes("SCOUT, the market intelligence agent");
+    const wantsMuseShape = request.system.includes("MUSE, the content and creative agent");
+    const wantsPlanShape = request.system.includes("planning a content calendar");
+    const wantsOrbitShape = request.system.includes("ORBIT, the campaign intelligence agent");
+    const wantsBudgetShape = request.system.includes("the budget planner inside LUMEN");
+    const wantsAscendShape = request.system.includes("ASCEND, the growth intelligence agent");
+    const wantsCadenceShape = request.system.includes("CADENCE, the weekly planning agent");
+    const wantsRouterShape = request.system.includes("You are the router inside LUMEN");
+    const wantsSectionShape = wantsAtlasShape && request.system.includes("rewriting a single section");
+
+    // Section keys are read back from the prompt so the mock always returns the
+    // exact set the caller asked for, rather than a hard-coded list that would
+    // silently drift from the spec.
+    const sectionKeys = [
+      ...(request.messages.at(-1)?.content.matchAll(/^- ([a-zA-Z0-9]+):/gm) ?? []),
+    ].map((match) => match[1]);
+
+    const atlasBody = wantsSectionShape
+      ? {
+          content: "Mock section text: no AI provider is configured.",
+          assumptions: ["Generated by the mock provider"],
+        }
+      : {
+          sections: Object.fromEntries(
+            sectionKeys.map((key) => [key, `Mock ${key}: no AI provider is configured.`]),
+          ),
+          assumptions: ["Generated by the mock provider, not a model."],
+          missingInformation: ["A configured AI provider"],
+        };
+
+    const pulseBody = {
+      segments: [
+        {
+          name: "Mock segment A",
+          description: "Mock description: no AI provider is configured.",
+          kind: "B2B" as const,
+          painPoints: ["Mock pain point"],
+          motivations: ["Mock motivation"],
+          buyingTriggers: ["Mock trigger"],
+          objections: ["Mock objection"],
+          preferredChannels: ["Mock channel"],
+          messagingAngles: ["Mock angle"],
+          evidenceNote: "Generated by the mock provider, not a model.",
+          icp: {
+            attributes: [{ label: "Company size", value: "Unknown", basis: "inferred" as const }],
+            qualifyingSignals: ["Mock signal"],
+            disqualifiers: ["Mock disqualifier"],
+          },
+          personas: [
+            {
+              name: "Mock Persona",
+              role: "Operator",
+              snapshot: "Illustrative only.",
+              goals: ["Mock goal"],
+              painPoints: ["Mock frustration"],
+              objections: ["Mock objection"],
+              channels: ["Mock channel"],
+            },
+          ],
+        },
+        {
+          name: "Mock segment B",
+          description: "Second mock segment, for comparison.",
+          kind: "B2C" as const,
+          painPoints: ["Another pain point"],
+          motivations: ["Another motivation"],
+          buyingTriggers: ["Another trigger"],
+          objections: ["Another objection"],
+          preferredChannels: ["Another channel"],
+          messagingAngles: ["Another angle"],
+          evidenceNote: "Generated by the mock provider, not a model.",
+          icp: { attributes: [], qualifyingSignals: [], disqualifiers: [] },
+          personas: [
+            {
+              name: "Second Persona",
+              role: "Buyer",
+              snapshot: "Illustrative only.",
+              goals: ["Goal"],
+              painPoints: ["Frustration"],
+              objections: ["Objection"],
+              channels: ["Channel"],
+            },
+          ],
+        },
+      ],
+      missingInformation: ["A configured AI provider"],
+    };
+
+    const scoutBody = {
+      insights: [
+        {
+          kind: "GAP" as const,
+          title: "Mock competitive gap",
+          detail: "Mock detail: no AI provider is configured.",
+          evidence: ["A recorded competitor weakness"],
+          assumptions: ["Generated by the mock provider"],
+          unknowns: ["Everything not written down"],
+        },
+        {
+          kind: "POSITIONING" as const,
+          title: "Mock positioning recommendation",
+          detail: "Mock detail: no AI provider is configured.",
+          evidence: ["A recorded positioning note"],
+          assumptions: [],
+          unknowns: [],
+        },
+      ],
+      researchNeeded: ["Configure an AI provider"],
+    };
+
+    // Honour the requested count so the caller's bounds are exercised.
+    const requested = Number(
+      request.messages.at(-1)?.content.match(/Write (\d+) /)?.[1] ?? 3,
+    );
+
+    const museBody = {
+      pillars: ["Mock pillar"],
+      items: Array.from({ length: Math.max(1, Math.min(requested, 8)) }, (_, index) => ({
+        platform: "INSTAGRAM" as const,
+        type: "POST" as const,
+        objective: `Mock objective ${index + 1}`,
+        audience: "Mock audience",
+        pillar: "Mock pillar",
+        hook: `Mock hook ${index + 1}: no AI provider is configured.`,
+        body: "Mock body.",
+        cta: "Mock call to action.",
+      })),
+      notes: ["Configure an AI provider"],
+    };
+
+    const slotCount = Number(
+      request.messages.at(-1)?.content.match(/Plan (\d+) pieces/)?.[1] ?? 3,
+    );
+
+    const planBody = {
+      pillars: ["Mock pillar"],
+      items: Array.from({ length: Math.max(1, Math.min(slotCount, 60)) }, (_, index) => ({
+        slot: index,
+        platform: "LINKEDIN" as const,
+        type: "POST" as const,
+        objective: `Mock plan objective ${index + 1}`,
+        audience: "Mock audience",
+        pillar: "Mock pillar",
+        hook: `Mock plan hook ${index + 1}`,
+        body: "Mock body.",
+        cta: "Mock call to action.",
+      })),
+      notes: ["Configure an AI provider"],
+    };
+
+    // Percentages deliberately sum to 97, not 100, so the server-side
+    // normalisation is exercised rather than assumed.
+    const orbitBody = {
+      name: "Mock campaign",
+      objective: "Mock objective: no AI provider is configured.",
+      audience: "Mock audience",
+      offer: "Mock offer",
+      channels: ["meta-ads", "email"] as const,
+      budgetAllocation: [
+        { channel: "meta-ads" as const, percent: 60, rationale: "Mock rationale" },
+        { channel: "email" as const, percent: 37, rationale: "Mock rationale" },
+      ],
+      messaging: ["Mock angle"],
+      creativeConcept: "Mock creative concept.",
+      funnel: ["Stage one", "Stage two"],
+      kpiFramework: [{ metric: "Mock metric", why: "Mock reason" }],
+      assumptions: ["Generated by the mock provider"],
+      missingInformation: ["A configured AI provider"],
+    };
+
+    // Sums to 90, not 100, so the balancing logic is exercised rather than
+    // assumed. It also names a category the caller may have excluded.
+    const budgetBody = {
+      lines: [
+        {
+          category: "content" as const,
+          percent: 50,
+          why: "Mock rationale",
+          role: "Mock role",
+          risk: "Mock risk",
+          priority: "HIGH" as const,
+        },
+        {
+          category: "seo" as const,
+          percent: 40,
+          why: "Mock rationale",
+          role: "Mock role",
+          risk: "Mock risk",
+          priority: "MEDIUM" as const,
+        },
+      ],
+      assumptions: ["Generated by the mock provider"],
+      missingInformation: ["A configured AI provider"],
+    };
+
+    // Claims HIGH confidence deliberately, so the server-side clamp is
+    // exercised rather than assumed.
+    const ascendBody = {
+      recommendations: [
+        {
+          title: "Mock recommendation",
+          insight: "Mock insight: no AI provider is configured.",
+          reason: "Mock reason.",
+          action: "Mock action.",
+          priority: "HIGH" as const,
+          impact: "HIGH" as const,
+          effort: "LOW" as const,
+          confidence: "HIGH" as const,
+          confidenceReason: "Claimed by the mock provider.",
+          basedOn: ["businessProfile"],
+        },
+      ],
+      missingInformation: ["A configured AI provider"],
+    };
+
+    /**
+     * The weekly plan.
+     *
+     * Deliberately returns one paid-search task and one duplicate title, so the
+     * guardrails have something real to catch. A mock that only ever returns
+     * clean output tests the happy path and quietly asserts nothing about the
+     * rules that exist for the unhappy one.
+     *
+     * The channels are read back from the prompt where the runtime listed them,
+     * so the "allowed channel" task is always one this business actually has —
+     * a hard-coded channel would drift from the config and start failing for
+     * the wrong reason.
+     */
+    const offeredChannels = [
+      ...(request.messages.at(-1)?.content.matchAll(/^- ([a-z-]+) \(/gm) ?? []),
+    ].map((match) => match[1]);
+
+    const cadenceBody = {
+      tasks: [
+        {
+          title: "Mock task: no AI provider is configured",
+          why: "Set AI_PROVIDER and a key to get a real plan for this business.",
+          steps: ["Open .env", "Set AI_PROVIDER and the matching key", "Regenerate the plan"],
+          channel: offeredChannels[0] ?? "content",
+          priority: "HIGH" as const,
+          expectedResult: "You will see a real plan instead of this one.",
+          evidence: [
+            {
+              claim: "Generated by the mock provider, not a model.",
+              sourceUrl: null,
+              sourceTitle: null,
+              confidence: "LOW" as const,
+            },
+          ],
+        },
+        {
+          title: "Mock task: second suggestion",
+          why: "Two tasks make ordering and progress counts observable.",
+          steps: ["Read the plan", "Mark one task done"],
+          channel: offeredChannels[1] ?? offeredChannels[0] ?? "email",
+          priority: "MEDIUM" as const,
+          expectedResult: "The progress count moves.",
+          evidence: [],
+        },
+        {
+          title: "Mock task: run paid search ads",
+          why: "Included so the zero-budget guardrail has something to remove.",
+          steps: ["Open the ads account", "Fund it", "Launch a campaign"],
+          channel: "paid-search" as const,
+          priority: "HIGH" as const,
+          expectedResult: "Clicks, in exchange for money.",
+          evidence: [],
+        },
+        {
+          title: "Mock task: second suggestion",
+          why: "A repeated title, so the duplicate guardrail has something to remove.",
+          steps: ["Repeat the step above"],
+          channel: offeredChannels[1] ?? offeredChannels[0] ?? "email",
+          priority: "LOW" as const,
+          expectedResult: "Nothing new.",
+          evidence: [],
+        },
+      ],
+      missingInformation: ["A configured AI provider"],
+    };
+
+    // Routes on a keyword so tests can drive specific destinations without a
+    // real model, and defaults to ASSISTANT — the read-only, no-write path.
+    // Only the request line. The full prompt carries the project context, which
+    // contains words like "targetCustomers" — matching against all of it would
+    // route every request to whichever keyword the context happened to mention.
+    const routerRequest =
+      request.messages.at(-1)?.content.match(/Route this request: (.*)/)?.[1] ?? "";
+    const routerAgentKey = /strateg/i.test(routerRequest)
+      ? "ATLAS"
+      : /audience|customer|persona/i.test(routerRequest)
+        ? "PULSE"
+        : /competitor|rival/i.test(routerRequest)
+          ? "SCOUT"
+          : /content|post|caption/i.test(routerRequest)
+            ? "MUSE"
+            : /campaign|launch plan/i.test(routerRequest)
+              ? "ORBIT"
+              : /improve|grow|next best/i.test(routerRequest)
+                ? "ASCEND"
+                : "ASSISTANT";
+
+    const routerBody = {
+      steps: [{ agent: routerAgentKey, reason: "Mock routing decision." }],
+      understanding: "Mock understanding of the request.",
+    };
+
+    const body = wantsRouterShape
+      ? routerBody
+      : wantsCadenceShape
+      ? cadenceBody
+      : wantsAscendShape
+      ? ascendBody
+      : wantsBudgetShape
+      ? budgetBody
+      : wantsOrbitShape
+      ? orbitBody
+      : wantsPlanShape
+      ? planBody
+      : wantsMuseShape
+      ? museBody
+      : wantsScoutShape
+      ? scoutBody
+      : wantsPulseShape
+      ? pulseBody
+      : wantsAtlasShape
+      ? atlasBody
+      : wantsAssistantShape
+      ? {
+          insight: "This is a mock answer: no AI provider is configured.",
+          whyItMatters:
+            "Set AI_PROVIDER and an API key to get real analysis of this business.",
+          recommendation: "Configure a provider in your environment file.",
+          nextAction: "Add ANTHROPIC_API_KEY to .env and set AI_PROVIDER=anthropic.",
+          confidence: "low" as const,
+          confidenceReason: "Generated by the mock provider, not a model.",
+          missingInformation: ["A configured AI provider"],
+          assumptions: [],
+        }
+      : {
+          ok: true,
+          echo: request.messages.at(-1)?.content.slice(0, 120) ?? "",
+          attempt,
+        };
+
+    return {
+      text: JSON.stringify(body),
+      usage: { promptTokens: 42, completionTokens: 18 },
+      model: request.model,
+    };
+  }
+}

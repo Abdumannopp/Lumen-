@@ -1,0 +1,688 @@
+<title>Lumen SaaS Foundation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+  /* Tokens follow the product's own design system: src/app/globals.css.
+     Light is the base; dark is redefined at token level only. */
+  :root {
+    --ground:        #f7f7fb;
+    --surface:       #ffffff;
+    --surface-sunk:  #efeffa;
+    --ink:           #10132b;
+    --ink-soft:      #4a4f75;
+    --ink-faint:     #6f7496;
+    --line:          #dcdcec;
+    --line-strong:   #c3c3dc;
+    --accent:        #7c3aed;
+    --accent-soft:   #ece9fe;
+    --accent-ink:    #4c1d95;
+    --blocker:       #d11f4c;
+    --blocker-soft:  #ffe4ea;
+    --caution:       #a86800;
+    --caution-soft:  #fdf0d0;
+    --done:          #0f8a5f;
+    --done-soft:     #d8f5e8;
+
+    --display: "Sora", ui-sans-serif, system-ui, sans-serif;
+    --body:    "Inter", ui-sans-serif, system-ui, sans-serif;
+    --mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+    --measure: 68ch;
+    --pad: clamp(1.25rem, 4vw, 3rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:       #07091a;
+      --surface:      #0e1130;
+      --surface-sunk: #14183a;
+      --ink:          #e6e8f5;
+      --ink-soft:     #a9aecd;
+      --ink-faint:    #868bad;
+      --line:         #232848;
+      --line-strong:  #343a63;
+      --accent:       #a78bfa;
+      --accent-soft:  #1e1b4b;
+      --accent-ink:   #ddd6fe;
+      --blocker:      #ff6b8d;
+      --blocker-soft: #3d1123;
+      --caution:      #fbbf24;
+      --caution-soft: #3a2c07;
+      --done:         #34d399;
+      --done-soft:    #06301f;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:       #07091a;
+    --surface:      #0e1130;
+    --surface-sunk: #14183a;
+    --ink:          #e6e8f5;
+    --ink-soft:     #a9aecd;
+    --ink-faint:    #868bad;
+    --line:         #232848;
+    --line-strong:  #343a63;
+    --accent:       #a78bfa;
+    --accent-soft:  #1e1b4b;
+    --accent-ink:   #ddd6fe;
+    --blocker:      #ff6b8d;
+    --blocker-soft: #3d1123;
+    --caution:      #fbbf24;
+    --caution-soft: #3a2c07;
+    --done:         #34d399;
+    --done-soft:    #06301f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: var(--pad);
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+  }
+
+  .col { max-width: var(--measure); }
+
+  h1, h2, h3 {
+    font-family: var(--display);
+    text-wrap: balance;
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  /* ---- masthead ---- */
+  header { display: flex; flex-direction: column; gap: 1.25rem; }
+  header h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 700; letter-spacing: -0.02em; }
+  header .lede { max-width: var(--measure); font-size: 1.0625rem; color: var(--ink-soft); margin: 0; }
+  .rule { height: 3px; width: 4.5rem; border-radius: 2px;
+          background: linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 30%, transparent)); }
+
+  .statebar {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 2rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+  }
+  .statebar b { color: var(--ink); font-weight: 500; }
+
+  /* ---- sections ---- */
+  section { display: flex; flex-direction: column; gap: 1.25rem; scroll-margin-top: 2rem; }
+  .shead { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; }
+  .snum {
+    font-family: var(--mono); font-weight: 700; font-size: 0.75rem;
+    color: var(--accent); border: 1px solid var(--line-strong);
+    border-radius: 6px; padding: 0.15rem 0.45rem; flex: none;
+  }
+  section > h2 { font-size: clamp(1.35rem, 2.6vw, 1.75rem); font-weight: 600; letter-spacing: -0.01em; }
+  section p { margin: 0; max-width: var(--measure); color: var(--ink-soft); }
+  section p strong, li strong { color: var(--ink); font-weight: 600; }
+
+  h3 { font-size: 1rem; font-weight: 600; margin-top: 0.5rem; }
+
+  ul { margin: 0; padding-left: 1.15rem; max-width: var(--measure);
+       display: flex; flex-direction: column; gap: 0.4rem; color: var(--ink-soft); }
+  li::marker { color: var(--ink-faint); }
+
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--surface-sunk); color: var(--ink);
+    padding: 0.1em 0.35em; border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+
+  /* ---- tables ---- */
+  .scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.875rem; }
+  th, td { text-align: left; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+    background: var(--surface-sunk); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.path { font-family: var(--mono); font-size: 0.8125rem; white-space: nowrap; }
+
+  /* ---- chips ---- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-family: var(--mono); font-size: 0.625rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.2rem 0.45rem; border-radius: 5px; white-space: nowrap;
+  }
+  .chip.blocker { background: var(--blocker-soft); color: var(--blocker); }
+  .chip.high    { background: var(--caution-soft); color: var(--caution); }
+  .chip.med     { background: var(--accent-soft);  color: var(--accent-ink); }
+  .chip.done    { background: var(--done-soft);    color: var(--done); }
+
+  /* ---- callouts ---- */
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    padding: 1rem 1.15rem;
+    border-radius: 0 10px 10px 0;
+    max-width: var(--measure);
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .note.danger { border-left-color: var(--blocker); }
+  .note .tag {
+    font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .note p { color: var(--ink-soft); }
+
+  /* ---- steps: a real dependency sequence, so numbered ---- */
+  ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; counter-reset: s; }
+  ol.steps li {
+    counter-increment: s;
+    display: grid; grid-template-columns: 2.4rem 1fr; gap: 0 1rem;
+    padding: 0.75rem 0; border-bottom: 1px solid var(--line);
+  }
+  ol.steps li:last-child { border-bottom: none; }
+  ol.steps li::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: var(--mono); font-size: 0.75rem; font-weight: 700;
+    color: var(--accent); padding-top: 0.15rem;
+  }
+  ol.steps .what { font-weight: 600; color: var(--ink); }
+  ol.steps .why { font-size: 0.875rem; color: var(--ink-soft); }
+  ol.steps li.is-done .what { color: var(--ink-soft); }
+
+  /* ---- gate ---- */
+  .gate {
+    border: 1px solid var(--accent);
+    background: var(--surface);
+    border-radius: 14px;
+    padding: clamp(1.25rem, 3vw, 2rem);
+    display: flex; flex-direction: column; gap: 0.9rem;
+    max-width: var(--measure);
+  }
+  .gate h2 { font-size: 1.25rem; }
+  .gate p { color: var(--ink-soft); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 1.25rem;
+           font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-faint); }
+
+  a { color: var(--accent); }
+  a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Lumen / Inspect va reja</p>
+    <div class="rule"></div>
+    <h1>SaaS poydevori: tekshiruv va reja</h1>
+    <p class="lede">
+      Qo'llanmaning 17-bo'limidagi Master Prompt talab qilgan yetti band. Kod hali
+      o'zgartirilmagan — bu bosqich faqat tekshiruv va reja. Sizning
+      <strong>APPROVE</strong> so'zingizdan keyin implementatsiya boshlanadi.
+    </p>
+    <div class="statebar">
+      <span>Branch <b>saas-foundation</b></span>
+      <span>Rollback <b>main @ bfefdea</b></span>
+      <span>Baseline <b>563 test / 0 xato</b></span>
+      <span>Marshrutlar <b>22</b></span>
+      <span>Server action <b>51</b></span>
+      <span>Model <b>18</b></span>
+    </div>
+  </header>
+
+  <section>
+    <div class="shead"><span class="snum">00</span><h2>Allaqachon bajarildi</h2></div>
+    <p>
+      Qo'llanmaning 20-bo'limi birinchi amaliy harakat sifatida uchta ishni ko'rsatadi.
+      Ikkitasi bajarildi; uchinchisi — shu hujjat.
+    </p>
+    <ol class="steps">
+      <li class="is-done">
+        <div>
+          <div class="what">Repo backup <span class="chip done">tayyor</span></div>
+          <div class="why">
+            Loyihada git umuman yo'q edi — ya'ni qo'llanma talab qiladigan
+            "har feature uchun bitta commit" va rollback tayanadigan hech narsa
+            yo'q edi. Git yaratildi, auditdan o'tgan holat <code>main</code>ga
+            baseline commit qilindi, ish <code>saas-foundation</code> branchida
+            boradi. Arxiv nusxasi ham saqlandi.
+          </div>
+        </div>
+      </li>
+      <li class="is-done">
+        <div>
+          <div class="what">CLAUDE.md <span class="chip done">tayyor</span></div>
+          <div class="why">
+            16-bo'limdagi matn, shu repoga moslashtirilgan: haqiqiy papka
+            tuzilishi, haqiqiy tekshirish buyruqlari va 563 testlik baseline —
+            regressiya endi o'lchanadigan bo'ldi, da'vo emas.
+          </div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="what">Inspect va reja</div>
+          <div class="why">Shu hujjat. Keyingi qadam sizniki.</div>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">01</span><h2>Hozirgi arxitektura va qayta ishlatiladigan modullar</h2></div>
+    <p>
+      Lumen — Next.js 16 App Router, React 19, Prisma 7, Tailwind 4, Zod 4.
+      TypeScript qattiq rejimda. 22 ta marshrut, <code>src/lib</code> ostida 16 ta
+      domen moduli, 18 ta ma'lumot modeli.
+    </p>
+
+    <h3>Qayta yozilmaydi — qo'llanma ham shuni talab qiladi</h3>
+    <ul>
+      <li>Oltita agent: <strong>ATLAS, PULSE, SCOUT, MUSE, ORBIT, ASCEND</strong> va assistant + router.</li>
+      <li>Agent runtime — qayta urinish, timeout, abort, schema validatsiyasi, run yozuvi.</li>
+      <li><code>ProjectContextBuilder</code> — agentga faqat so'ralgan kontekstni yig'adi.</li>
+      <li>Provayder abstraksiyasi — mock, Gemini, Groq, OpenRouter, Anthropic.</li>
+      <li>Dizayn tizimi va komponent kutubxonasi.</li>
+    </ul>
+
+    <h3>Poydevor uchun uchta kuchli tomon</h3>
+    <ul>
+      <li>
+        <strong>Har bir yozuv allaqachon <code>projectId</code> olib yuradi</strong> va
+        undan cascade bo'ladi. Ko'p loyihalarda eng og'riqli ish shu — bu yerda tayyor.
+      </li>
+      <li>
+        <strong>Yozish yo'li bitta</strong>: 51 ta Server Action. Mijoz yozadigan REST API
+        yo'q, ya'ni qayta himoyalanadigan ikkinchi sirt yo'q.
+      </li>
+      <li>
+        <strong>AgentRun allaqachon provider, model, token, latency va attempts yozadi</strong> —
+        10-bo'lim talab qilgan 14 maydondan 7 tasi bor.
+      </li>
+    </ul>
+
+    <div class="note">
+      <span class="tag">Bir kishi = bir hisob</span>
+      <p>
+        Siz jamoa emas, bitta hisob tanladingiz. Shunga qaramay <code>Workspace</code> va
+        <code>Membership</code> modellari qo'llanmadagidek qoladi: hozir har workspace'da
+        aynan bitta OWNER bo'ladi. Bu qo'shimcha ish emas — limit, billing va izolyatsiya
+        baribir bitta scope'ga bog'lanishi kerak. Keyin hamkasb qo'shish kerak bo'lsa,
+        bu schema o'zgarishi emas, UI qo'shilishi bo'ladi.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">02</span><h2>O'zgaradigan aniq fayllar</h2></div>
+    <p>
+      Har bir feature alohida commit bo'ladi. Quyida qaysi feature qaysi fayllarga
+      tegishi — ortiqcha refactor yo'q.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>Yangi fayllar</th><th>O'zgaradigan fayllar</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PostgreSQL</td>
+            <td class="path">prisma/migrations/…<br>scripts/import-to-workspace.ts</td>
+            <td class="path">prisma/schema.prisma<br>src/lib/db.ts<br>src/lib/env.ts<br>prisma.config.ts</td>
+          </tr>
+          <tr>
+            <td>Auth + Workspace</td>
+            <td class="path">src/lib/auth/session.ts<br>src/lib/auth/dal.ts<br>src/app/(auth)/*<br>src/app/auth/confirm/route.ts</td>
+            <td class="path">src/lib/active-project.ts<br>src/lib/projects/queries.ts<br>src/app/(app)/layout.tsx</td>
+          </tr>
+          <tr>
+            <td>Workspace scope</td>
+            <td class="path">src/lib/workspace/guard.ts</td>
+            <td class="path">16 × queries.ts<br>15 × actions.ts (51 action)</td>
+          </tr>
+          <tr>
+            <td>Onboarding</td>
+            <td class="path">—</td>
+            <td class="path">src/lib/business-profile/*<br>src/components/onboarding/*</td>
+          </tr>
+          <tr>
+            <td>Weekly Plan</td>
+            <td class="path">src/lib/weekly-plan/*<br>src/app/(app)/plan/*<br>src/components/plan/*</td>
+            <td class="path">prisma/schema.prisma</td>
+          </tr>
+          <tr>
+            <td>AI limit</td>
+            <td class="path">src/lib/usage/quota.ts<br>src/lib/usage/pricing.ts</td>
+            <td class="path">src/lib/ai/runtime.ts<br>src/lib/ai/providers/index.ts</td>
+          </tr>
+          <tr>
+            <td>Paddle</td>
+            <td class="path">src/lib/billing/*<br>src/app/api/webhooks/paddle/route.ts</td>
+            <td class="path">src/lib/env.ts<br>src/app/(app)/settings/*</td>
+          </tr>
+          <tr>
+            <td>Email</td>
+            <td class="path">src/lib/email/*</td>
+            <td class="path">src/lib/env.ts</td>
+          </tr>
+          <tr>
+            <td>Invite-only beta</td>
+            <td class="path">src/lib/invites/*</td>
+            <td class="path">src/app/(auth)/signup/*</td>
+          </tr>
+          <tr>
+            <td>Testlar</td>
+            <td class="path">tests/unit/*<br>tests/e2e/*<br>scripts/lib/auth.sh</td>
+            <td class="path">18 × scripts/e2e-*.sh</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note danger">
+      <span class="tag">Kutilmagan hajm</span>
+      <p>
+        <strong>18 ta mavjud e2e suita login'siz HTTP uradi.</strong> Auth qo'shilgan
+        zahoti 563 tasi ham yiqiladi — ya'ni eng xavfli o'zgarishlar kirayotgan
+        paytda xavfsizlik to'ri o'chadi. Shuning uchun rejada auth'dan
+        <em>oldin</em> suitalarga umumiy login helper qo'shiladi.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">03</span><h2>Schema va migration yondashuvi</h2></div>
+    <p>
+      Prisma SQLite migration SQL'ini PostgreSQL uchun qayta ishlatib bo'lmaydi,
+      shuning uchun toza baseline yaratiladi. Loyihada hozir umuman migration
+      tarixi yo'q — bu birinchi baseline'ni to'g'ri qilish imkonini beradi.
+    </p>
+
+    <h3>Yangi modellar</h3>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Model</th><th>Vazifasi</th><th>Manba</th></tr></thead>
+        <tbody>
+          <tr><td class="path">User</td><td>Auth identity bilan bog'lanadi</td><td>5-bo'lim</td></tr>
+          <tr><td class="path">Workspace</td><td>Mijoz kabineti — izolyatsiya chegarasi</td><td>5-bo'lim</td></tr>
+          <tr><td class="path">Membership</td><td>Kim qaysi kabinetga kiradi + rol</td><td>5-bo'lim</td></tr>
+          <tr><td class="path">AuditEvent</td><td>DONE/SKIPPED va muhim harakat izi</td><td>5, 9-bo'lim</td></tr>
+          <tr><td class="path">WeeklyPlan</td><td>inputHash, model, promptVersion</td><td>8-bo'lim</td></tr>
+          <tr><td class="path">MarketingTask</td><td>TODO / DONE / SKIPPED</td><td>8, 9-bo'lim</td></tr>
+          <tr><td class="path">Evidence</td><td>sourceUrl, claim, confidence</td><td>8-bo'lim</td></tr>
+          <tr><td class="path">Subscription</td><td>Paddle holati</td><td>11-bo'lim</td></tr>
+          <tr><td class="path">Entitlement</td><td>key, limit, used</td><td>11-bo'lim</td></tr>
+          <tr><td class="path">WebhookEvent</td><td>providerEventId UNIQUE — idempotency</td><td>11-bo'lim</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Mavjud schema'ga tegishlar</h3>
+    <ul>
+      <li><code>Project</code> ga <code>workspaceId</code> qo'shiladi. Qolgan 17 ta jadval unga <code>projectId</code> orqali yetadi — bu qo'llanmadagi "ishonchli parent relation".</li>
+      <li>Beshta JSON ro'yxat ustuni <code>String</code> dan <code>String[]</code> ga o'tadi; <code>src/lib/json-list.ts</code> olib tashlanadi.</li>
+      <li>30 ta <code>Json</code> ustun Postgres'da <code>jsonb</code> bo'ladi — kod o'zgarmaydi.</li>
+      <li>To'rtta ilova darajasidagi <code>toLowerCase()</code> taqqoslash <code>mode: "insensitive"</code> ga o'tadi.</li>
+      <li><code>Settings</code> singleton qatordan workspace'ga bog'lanadi.</li>
+      <li><code>AgentRun</code> ga 7 maydon qo'shiladi: <code>workspaceId, userId, featureKey, estimatedCostUsd, idempotencyKey, promptVersion, schemaVersion</code>.</li>
+    </ul>
+
+    <h3>Ko'chirish tartibi va qabul mezoni</h3>
+    <ul>
+      <li>SQLite fayl va schema backup qilinadi; eski baza <strong>o'chirilmaydi</strong>.</li>
+      <li>Idempotent import skripti mavjud barcha yozuvlarni founder workspace'iga bog'laydi.</li>
+      <li>Tekshiruv: eski va yangi row count mos; orphan yo'q; har yozuv to'g'ri workspace'da; foreign key butun.</li>
+      <li><code>DATABASE_URL</code> commitga, browserga va logga tushmaydi.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">04</span><h2>Auth va workspace ruxsat oqimi</h2></div>
+    <p>
+      Supabase Auth SSR, sessiya cookie orqali. Server foydalanuvchi identityni
+      token'dan chiqaradi — browser yuborgan <code>userId</code> yoki
+      <code>workspaceId</code> ga hech qachon ishonmaydi.
+    </p>
+
+    <h3>Bitta kirish nuqtasi</h3>
+    <ul>
+      <li><code>requireUser()</code> — sessiyani tekshiradi, yo'q bo'lsa rad etadi.</li>
+      <li><code>requireWorkspace()</code> — <code>Membership</code> orqali a'zolikni tasdiqlaydi va <code>{ userId, workspaceId, role }</code> qaytaradi.</li>
+      <li><code>requireProject(projectId)</code> — loyiha shu workspace'ga tegishliligini tekshiradi.</li>
+      <li>Har bir Server Action va Route Handler shundan boshlanadi. Proxy yoki UI guard yetarli emas — bu Next.js'ning o'z tavsiyasi.</li>
+    </ul>
+
+    <div class="note danger">
+      <span class="tag">Eng xavfli topilma</span>
+      <p>
+        <code>getActiveProject()</code> hozir cookie yo'q bo'lsa
+        <strong>butun bazadagi eng oxirgi tahrirlangan loyihaga</strong> qaytadi.
+        Bitta kompyuterda bu qulaylik. Ko'p ijarachida esa: cookie'siz kirgan
+        foydalanuvchi <strong>begona odamning biznesini ochadi</strong> — parol
+        to'g'ri, sessiya haqiqiy, lekin ma'lumot boshqasiniki. Bu fallback
+        workspace bilan chegaralanmasa, boshqa hech qanday tekshiruv yordam bermaydi.
+      </p>
+    </div>
+
+    <h3>Signup oqimi</h3>
+    <ul>
+      <li>Email tasdiqlangandan keyin <code>User</code>, <code>Workspace</code> va OWNER <code>Membership</code> bitta transactionda yaratiladi.</li>
+      <li>Xato xabari hisob bor-yo'qligini oshkor qilmaydi.</li>
+      <li><code>activeWorkspaceId</code> cookie faqat tanlov — har so'rovda a'zolikka qarab qayta tekshiriladi.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">05</span><h2>Test matritsasi va A/B izolyatsiya</h2></div>
+    <p>
+      Mavjud 563 ta e2e tasdiq saqlanadi va ustiga yangi qatlamlar qo'yiladi.
+      Qo'llanmaning release blokeri — cross-workspace testi.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Turi</th><th>Nimani tekshiradi</th><th>Holati</th><th class="num">Hajm</th></tr></thead>
+        <tbody>
+          <tr><td>E2E (mavjud)</td><td>Barcha marketing modullari</td><td><span class="chip high">login qadami kerak</span></td><td class="num">18 suita / 563</td></tr>
+          <tr><td>Unit</td><td>Validatsiya, limit, status o'tishi, narx formulasi</td><td><span class="chip med">yangi</span></td><td class="num">vitest</td></tr>
+          <tr><td>Integration</td><td>Prisma query, auth DAL, webhook, idempotency</td><td><span class="chip med">yangi</span></td><td class="num">vitest</td></tr>
+          <tr><td>Contract</td><td>AI schema va provayder fixture'lari</td><td><span class="chip med">yangi</span></td><td class="num">vitest</td></tr>
+          <tr><td>Security</td><td>A/B tenant izolyatsiya, eski sessiya, soxta ID</td><td><span class="chip blocker">release blocker</span></td><td class="num">yangi</td></tr>
+          <tr><td>E2E (Playwright)</td><td>signup → onboarding → plan → done/skip → billing</td><td><span class="chip med">yangi</span></td><td class="num">critical flow</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Asosiy izolyatsiya testi</h3>
+    <ul>
+      <li>Ikki workspace'da ikki foydalanuvchi yaratiladi.</li>
+      <li>User A loyiha va haftalik vazifalar yaratadi.</li>
+      <li>User B — A ning ID'lari bilan o'qish, yangilash va o'chirishga urinadi.</li>
+      <li>Har bir urinish <em>not-found</em> yoki <em>forbidden</em> qaytarishi va hech nimani o'zgartirmasligi shart.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">06</span><h2>Sirlar va siz ochadigan hisoblar</h2></div>
+    <p>
+      Bularni men ocholmayman — sizning nomingizga va kartangizga bog'lanadi.
+      Nomlar <code>.env.example</code> ga yoziladi, qiymatlar hech qachon repoga tushmaydi.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Xizmat</th><th>Nima kerak</th><th>Env nomlari</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Supabase</td>
+            <td>Loyiha oching; Auth email provayderini yoqing</td>
+            <td class="path">NEXT_PUBLIC_SUPABASE_URL<br>NEXT_PUBLIC_SUPABASE_ANON_KEY<br>SUPABASE_SERVICE_ROLE_KEY</td>
+          </tr>
+          <tr>
+            <td>PostgreSQL</td>
+            <td>Supabase ichidagi yoki alohida baza</td>
+            <td class="path">DATABASE_URL</td>
+          </tr>
+          <tr>
+            <td>Paddle</td>
+            <td>Sandbox hisob, bitta Product + bitta takrorlanuvchi Price, webhook manzili</td>
+            <td class="path">PADDLE_API_KEY<br>PADDLE_WEBHOOK_SECRET<br>PADDLE_PRICE_ID</td>
+          </tr>
+          <tr>
+            <td>Resend</td>
+            <td>Domenni tasdiqlang (DNS yozuvlari)</td>
+            <td class="path">RESEND_API_KEY<br>EMAIL_FROM</td>
+          </tr>
+          <tr>
+            <td>AI provayder</td>
+            <td>Allaqachon bor — kalitni saqlab qo'ying</td>
+            <td class="path">AI_PROVIDER + mos kalit</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <span class="tag">Limitni nimaga qarab qo'yamiz</span>
+      <p>
+        Har bir AI amalining haqiqiy token hajmi to'ldirilgan biznesda o'lchandi.
+        Kunda ishlatadigan og'ir foydalanuvchi oyiga ~470 amal qiladi va bu
+        <strong>Gemini Flash'da ~$2.4, Flash-Lite'da ~$0.5</strong> turadi;
+        Claude Sonnet 5'da esa ~$14. Ya'ni AI xarajati bitta tarifni qo'rqitadigan
+        narsa emas — model tanlovi tarifdan muhimroq. Aniq limit raqami
+        implementatsiya paytida shu o'lchovga qarab qo'yiladi.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">07</span><h2>Rollback va ma'lum risklar</h2></div>
+
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Daraja</th><th>Risk</th><th>Nima qilinadi</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="chip blocker">blocker</span></td>
+            <td>Settings'dagi Backup/Restore <strong>butun bazani</strong> o'qiydi va o'chiradi</td>
+            <td>Ikkinchi mijoz paydo bo'lishidan oldin workspace bilan cheklanadi yoki UI'dan olib tashlanadi</td>
+          </tr>
+          <tr>
+            <td><span class="chip blocker">blocker</span></td>
+            <td><code>getActiveProject()</code> global fallback — begona loyihaga tushadi</td>
+            <td>Fallback workspace bilan cheklanadi; testi security suitaga qo'shiladi</td>
+          </tr>
+          <tr>
+            <td><span class="chip high">high</span></td>
+            <td>44 ta action <code>projectId</code> ni mijozdan egalik tekshiruvisiz oladi</td>
+            <td>Hammasi <code>requireProject()</code> orqali o'tkaziladi</td>
+          </tr>
+          <tr>
+            <td><span class="chip high">high</span></td>
+            <td>Auth qo'shilishi bilan 18 suita ham yiqiladi — xavfsizlik to'ri o'chadi</td>
+            <td>Login helper auth'dan oldin qo'shiladi</td>
+          </tr>
+          <tr>
+            <td><span class="chip high">high</span></td>
+            <td><code>getProvider()</code> jarayon bo'yicha keshlangan — plan bo'yicha model tanlash bilan to'qnashadi</td>
+            <td>Kesh workspace/plan kaliti bo'yicha qayta quriladi</td>
+          </tr>
+          <tr>
+            <td><span class="chip med">medium</span></td>
+            <td>Rate limiting umuman yo'q</td>
+            <td>Quota guard provayder chaqiruvidan oldin ishlaydi</td>
+          </tr>
+          <tr>
+            <td><span class="chip med">medium</span></td>
+            <td><code>/api/ai/selftest</code> yoqilgan holda keladi</td>
+            <td>Auth ostiga olinadi yoki productionda o'chiriladi</td>
+          </tr>
+          <tr>
+            <td><span class="chip med">medium</span></td>
+            <td>Migration tarixi yo'q — birinchi baseline xato bo'lsa qimmat</td>
+            <td>Baseline alohida tekshiriladi; eski SQLite fayl saqlanadi</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Rollback</h3>
+    <ul>
+      <li><code>main</code> branchi — auditdan o'tgan, 563 testi yashil ishlaydigan holat. Har doim qaytish mumkin.</li>
+      <li>Har feature bitta commit — bittasini <code>revert</code> qilish qolganiga tegmaydi.</li>
+      <li>Baza: migration'dan oldin dump; SQLite fayl o'chirilmaydi; import idempotent, ya'ni qayta yurgizsa dublikat yaratmaydi.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="shead"><span class="snum">08</span><h2>Bajarish tartibi</h2></div>
+    <p>
+      Qo'llanmaning 18-bo'limidagi tartib, ikkita o'zgarish bilan: e2e login helper
+      auth'dan oldinga surildi, va Backup/Restore blokeri birinchi mijozdan oldinga
+      qo'yildi.
+    </p>
+    <ol class="steps">
+      <li class="is-done"><div><div class="what">Repo backup + CLAUDE.md <span class="chip done">tayyor</span></div><div class="why">AI coding chegarasi va rollback.</div></div></li>
+      <li><div><div class="what">E2E login helper + Backup/Restore cheklovi</div><div class="why">Xavfsizlik to'rini auth'dan oldin saqlab qolish.</div></div></li>
+      <li><div><div class="what">PostgreSQL + data migration</div><div class="why">Tenant modeli uchun asos.</div></div></li>
+      <li><div><div class="what">Auth + Workspace + Membership</div><div class="why">Har so'rov kim va qaysi kabinet ekanini biladi.</div></div></li>
+      <li><div><div class="what">Workspace scope: 51 action + 16 queries</div><div class="why">Cross-tenant oqishni to'xtatadi.</div></div></li>
+      <li><div><div class="what">Onboarding</div><div class="why">Weekly Plan uchun business context.</div></div></li>
+      <li><div><div class="what">Weekly Plan + DONE/SKIPPED</div><div class="why">Asosiy mahsulot qiymati.</div></div></li>
+      <li><div><div class="what">AI usage + limit</div><div class="why">Xarajat va suiiste'mol nazorati.</div></div></li>
+      <li><div><div class="what">Paddle bitta tarif</div><div class="why">Entitlement va pullik access.</div></div></li>
+      <li><div><div class="what">Email oqimlari + English copy</div><div class="why">Tiklash va mahsulot aniqligi.</div></div></li>
+      <li><div><div class="what">Invite-only beta</div><div class="why">Nazoratli real foydalanuvchi.</div></div></li>
+      <li><div><div class="what">Adversarial QA</div><div class="why">Release qarori.</div></div></li>
+    </ol>
+  </section>
+
+  <div class="gate">
+    <p class="eyebrow">Keyingi qadam</p>
+    <h2>Kod hali o'zgartirilmagan</h2>
+    <p>
+      Qo'llanma aytganidek, implementatsiya sizning ruxsatingizsiz boshlanmaydi.
+      Rejani ma'qullasangiz <strong>APPROVE</strong> deb yozing — men 02-qadamdan
+      (e2e login helper va Backup/Restore blokeri) boshlayman va har feature
+      oxirida haqiqiy test natijalarini ko'rsataman.
+    </p>
+    <p>
+      Biror bandni o'zgartirmoqchi bo'lsangiz — tartibni, hajmni yoki
+      texnologiyani — shuni ayting, rejani qayta yozaman.
+    </p>
+  </div>
+
+  <footer>
+    Lumen / SaaS poydevori · Inspect va reja bosqichi · branch saas-foundation · baseline main @ bfefdea
+  </footer>
+
+</div>

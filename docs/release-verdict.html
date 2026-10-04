@@ -1,0 +1,633 @@
+<title>Lumen Release Verdict</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --paper:   #eef1f5;
+    --surface: #ffffff;
+    --ink:     #11151d;
+    --muted:   #56606f;
+    --faint:   #7b8595;
+    --rule:    #d7dde5;
+    --navy:    #2f4b7c;
+
+    --crit:    #a81f16;
+    --high:    #955007;
+    --med:     #3f5580;
+    --pass:    #17603d;
+
+    --crit-bg: #f7e7e5;
+    --high-bg: #f8eddc;
+    --med-bg:  #e6ebf4;
+    --pass-bg: #e0efe7;
+
+    --shadow: 0 1px 2px rgb(17 21 29 / .05), 0 8px 24px -12px rgb(17 21 29 / .12);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #0d1017;
+      --surface: #161b25;
+      --ink:     #e8ecf2;
+      --muted:   #9aa4b4;
+      --faint:   #6f7a8b;
+      --rule:    #262d3a;
+      --navy:    #9db4dd;
+
+      --crit:    #f2938a;
+      --high:    #e8b168;
+      --med:     #9db4dd;
+      --pass:    #7fc9a1;
+
+      --crit-bg: #2b1614;
+      --high-bg: #2a2013;
+      --med-bg:  #181f2d;
+      --pass-bg: #12241b;
+
+      --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 24px -12px rgb(0 0 0 / .6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:   #0d1017;
+    --surface: #161b25;
+    --ink:     #e8ecf2;
+    --muted:   #9aa4b4;
+    --faint:   #6f7a8b;
+    --rule:    #262d3a;
+    --navy:    #9db4dd;
+
+    --crit:    #f2938a;
+    --high:    #e8b168;
+    --med:     #9db4dd;
+    --pass:    #7fc9a1;
+
+    --crit-bg: #2b1614;
+    --high-bg: #2a2013;
+    --med-bg:  #181f2d;
+    --pass-bg: #12241b;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 24px -12px rgb(0 0 0 / .6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 47rem;
+    margin: 0 auto;
+    padding: clamp(1.75rem, 4vw, 3.5rem) clamp(1.1rem, 4vw, 2rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  h1, h2, h3, .label, .sev, .num { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; }
+
+  .label {
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* ---- masthead ---------------------------------------------------- */
+
+  .masthead { display: flex; flex-direction: column; gap: .75rem; }
+
+  .masthead h1 {
+    font-size: clamp(1.75rem, 4.5vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: -.022em;
+    line-height: 1.12;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .meta {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .75rem;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem 1.1rem;
+  }
+
+  /* ---- verdict ------------------------------------------------------ */
+
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--crit);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: clamp(1.25rem, 3vw, 1.9rem);
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+  }
+
+  .verdict-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: .5rem .9rem;
+  }
+
+  .verdict-head strong {
+    font-family: Archivo, sans-serif;
+    font-size: clamp(1.3rem, 3.2vw, 1.6rem);
+    font-weight: 700;
+    letter-spacing: -.015em;
+    color: var(--crit);
+  }
+
+  .verdict p { margin: 0; }
+  .verdict p + p { margin-top: .55rem; }
+
+  .tally {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    padding-top: .35rem;
+  }
+
+  .chip {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .7rem;
+    letter-spacing: .02em;
+    padding: .28rem .6rem;
+    border-radius: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.c { background: var(--crit-bg); color: var(--crit); }
+  .chip.h { background: var(--high-bg); color: var(--high); }
+  .chip.m { background: var(--med-bg);  color: var(--med);  }
+  .chip.p { background: var(--pass-bg); color: var(--pass); }
+
+  /* ---- sections ------------------------------------------------------ */
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .section-head {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    padding-bottom: .6rem;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .section-head h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -.012em;
+    margin: 0;
+  }
+
+  .section-head p { margin: 0; color: var(--muted); font-size: .95rem; }
+
+  /* ---- findings ------------------------------------------------------ */
+
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .finding-top {
+    display: flex;
+    align-items: flex-start;
+    gap: .85rem;
+    padding: 1.1rem clamp(1rem, 2.5vw, 1.5rem) .9rem;
+  }
+
+  .sev {
+    flex: none;
+    font-size: .625rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: .3rem .5rem;
+    border-radius: 2px;
+    margin-top: .28rem;
+  }
+  .sev.c { background: var(--crit-bg); color: var(--crit); }
+  .sev.h { background: var(--high-bg); color: var(--high); }
+  .sev.m { background: var(--med-bg);  color: var(--med);  }
+
+  .finding-top h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -.008em;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+
+  .finding-body {
+    padding: 0 clamp(1rem, 2.5vw, 1.5rem) 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+  }
+
+  .finding-body p { margin: 0; }
+
+  .where {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .74rem;
+    color: var(--faint);
+    word-break: break-word;
+  }
+
+  pre {
+    margin: 0;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: .8rem .9rem;
+    overflow-x: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .74rem;
+    line-height: 1.65;
+    color: var(--ink);
+  }
+
+  pre .c { color: var(--crit); }
+  pre .g { color: var(--faint); }
+
+  .fix {
+    border-top: 1px solid var(--rule);
+    padding: .85rem clamp(1rem, 2.5vw, 1.5rem);
+    background: var(--paper);
+    display: flex;
+    gap: .6rem;
+    align-items: baseline;
+    font-size: .95rem;
+  }
+
+  .fix .label { flex: none; padding-top: .12rem; }
+
+  /* ---- held ---------------------------------------------------------- */
+
+  .held { display: flex; flex-direction: column; gap: .1rem; }
+
+  .held-row {
+    display: flex;
+    gap: .8rem;
+    align-items: baseline;
+    padding: .7rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .held-row:last-child { border-bottom: 0; }
+
+  .held-row .tick { flex: none; color: var(--pass); font-family: Archivo, sans-serif; font-weight: 700; }
+  .held-row div { font-size: .97rem; }
+  .held-row .m {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    color: var(--faint);
+    margin-top: .12rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- order --------------------------------------------------------- */
+
+  ol.order { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .1rem; counter-reset: step; }
+
+  ol.order li {
+    display: flex;
+    gap: .85rem;
+    align-items: baseline;
+    padding: .75rem 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: .97rem;
+  }
+  ol.order li:last-child { border-bottom: 0; }
+
+  ol.order li::before {
+    counter-increment: step;
+    content: counter(step);
+    flex: none;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .72rem;
+    color: var(--navy);
+    width: 1.1rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.1rem;
+    color: var(--faint);
+    font-size: .85rem;
+  }
+
+  code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .85em;
+    background: var(--paper);
+    padding: .1em .32em;
+    border-radius: 2px;
+  }
+  .finding-body code, .fix code { background: var(--paper); }
+  .verdict code { background: var(--paper); }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="label">Adversarial QA · 12-qadam</span>
+    <h1>Lumen chiqarishga tayyormi?</h1>
+    <div class="meta">
+      <span>2026-08-24</span>
+      <span>branch saas-foundation</span>
+      <span>d5da650 + commit qilinmagan 11-qadam</span>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <div class="verdict-head">
+      <strong>Yo'q — hali emas.</strong>
+      <span class="label">Uchta to'siq</span>
+    </div>
+    <p>
+      Uchta muammoning har birini <em>haqiqatan bajarib ko'rdim</em> — nazariy emas.
+      Bittasi bilan begona odam sizning akkauntingizga parolsiz kiradi.
+      Ikkinchisi bilan bir mijoz boshqa mijozning ma'lumotiga yozadi.
+      Uchinchisi bilan har kim sizning AI hisobingizdan pul sarflaydi.
+    </p>
+    <p>
+      Qolgan hamma narsa yaxshi holatda. Bu uchtasi tuzatilsa —
+      men bahosi <strong>chiqarish mumkin</strong> bo'ladi.
+    </p>
+    <div class="tally">
+      <span class="chip c">1 kritik</span>
+      <span class="chip h">2 yuqori</span>
+      <span class="chip m">4 o'rta</span>
+      <span class="chip p">814 test yashil</span>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>To'siqlar</h2>
+      <p>Chiqarishdan oldin albatta tuzatiladi. Har biri isbotlangan.</p>
+    </div>
+
+    <article class="finding">
+      <div class="finding-top">
+        <span class="sev c">Kritik</span>
+        <h3>Begona odam parolsiz akkauntga kiradi — agar server sozlamalari faqat ishga tushirishda berilsa</h3>
+      </div>
+      <div class="finding-body">
+        <p class="where">src/lib/env.ts:187 · src/app/api/dev/confirm-link/route.ts:31</p>
+        <p>
+          Next.js <code>NEXT_PUBLIC_*</code> o'zgaruvchilarni <strong>build paytida</strong> kodga
+          yozib qo'yadi. Ishga tushirishda bersangiz — kech. Docker va ko'p hosting
+          platformalari aynan shunday ishlaydi.
+        </p>
+        <p>
+          Natijada production himoyasi umuman ishlamaydi: sinov uchun yozilgan
+          soxta auth ishlayveradi, va faqat dasturchilar uchun mo'ljallangan
+          manzil <em>istalgan odamning</em> parol tiklash tokenini qaytaradi.
+        </p>
+        <pre><span class="g"># production sifatida ishga tushirildi:</span>
+NEXT_PUBLIC_APP_ENV=production AUTH_PROVIDER=local npm start
+<span class="g">→</span> ✓ Ready in 153ms          <span class="c">← rad etishi kerak edi</span>
+
+<span class="g"># hech qanday login qilmasdan:</span>
+curl '.../api/dev/confirm-link?email=suite@lumen.test'
+<span class="g">→</span> {"tokenHash":"85fb5e883c9966a0014f2ff3687aee8b"}
+
+curl '.../auth/confirm?token_hash=85fb5e...&type=recovery'
+<span class="g">→</span> lumen.local_session cookie olindi
+curl -b cookie .../overview
+<span class="g">→</span> <span class="c">HTTP 200 — akkaunt qo'lda</span></pre>
+      </div>
+      <div class="fix">
+        <span class="label">Tuzatish</span>
+        <span>Tekshiruv <em>ishlash paytida</em> qilinsin, build paytida emas. Dasturchi manzillari umuman production build'ga kirmasin.</span>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="finding-top">
+        <span class="sev h">Yuqori</span>
+        <h3>Zaxiradan tiklash orqali boshqa mijozning loyihasiga yozib bo'ladi</h3>
+      </div>
+      <div class="finding-body">
+        <p class="where">src/lib/settings/backup.ts:301–355</p>
+        <p>
+          Tiklashda faqat <code>projects</code> qatorlariga to'g'ri egasi yoziladi.
+          Qolgan 17 ta jadval fayldan kelgan <code>projectId</code> ni <em>o'zgartirmasdan</em>
+          qabul qiladi. Ya'ni fayl ichiga begona loyiha IDsini yozib, o'sha
+          loyihaga qator qo'shib bo'ladi.
+        </p>
+        <p>
+          Eng yomoni: biznes profili AI'ga kontekst sifatida beriladi. Ya'ni
+          begona odam <strong>sizning AI'ingizga nima aytilishini</strong> boshqara oladi.
+        </p>
+        <pre><span class="g"># hujumchi o'z akkauntidan tiklash qildi.</span>
+<span class="g"># fayl ichida: projectId = qurbonning loyihasi</span>
+
+SELECT c.objective, p.name, p."workspaceId"
+  FROM content_items c JOIN projects p ...
+
+<span class="g">→</span> PLANTED BY ATTACKER | Victim Co | cmt6lfiu60000d17dadq7ktmx
+                                    <span class="c">↑ qurbonning workspace'i</span></pre>
+      </div>
+      <div class="fix">
+        <span class="label">Tuzatish</span>
+        <span>Tiklashda hamma bola-jadval qatorlariga ham to'g'ri egalik majburan yozilsin, faylga ishonilmasin.</span>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="finding-top">
+        <span class="sev h">Yuqori</span>
+        <h3>«AI ulanishini tekshirish» tugmasi login talab qilmaydi</h3>
+      </div>
+      <div class="finding-body">
+        <p class="where">src/lib/settings/actions.ts:87 · testAiConnectionAction</p>
+        <p>
+          Bu amal hech qanday tekshiruvsiz ishlaydi, va u limitni ham
+          chetlab o'tadi. Haqiqiy AI provayder ulangach, har kim cheksiz
+          marta <strong>sizning kalitingiz bilan</strong> so'rov yuborishi mumkin.
+          Hisob sizga keladi.
+        </p>
+        <pre><span class="g"># hech qanday cookie yo'q:</span>
+curl -X POST /settings -H 'Next-Action: 00635ba2...'
+
+<span class="g">→</span> {"ok":true,"provider":"mock","latencyMs":1,...}
+     <span class="c">↑ ishladi. login so'ralmadi, limit hisoblanmadi.</span></pre>
+      </div>
+      <div class="fix">
+        <span class="label">Tuzatish</span>
+        <span>Bir qator: amal boshida <code>requireWorkspace()</code>. Va limit hisobiga kirsin.</span>
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>To'siq emas, lekin tez orada</h2>
+      <p>Chiqarishga to'sqinlik qilmaydi. Birinchi haqiqiy mijozlargacha tuzatilsa yaxshi.</p>
+    </div>
+
+    <article class="finding">
+      <div class="finding-top">
+        <span class="sev m">O'rta</span>
+        <h3>Hech qayerda urinishlar soni cheklanmagan</h3>
+      </div>
+      <div class="finding-body">
+        <p>
+          Parol topishga urinish, begona manzilga parol-tiklash xatlari yog'dirish,
+          taklifnoma tokenini topishga urinish — hammasi cheksiz.
+        </p>
+        <pre><span class="g"># 200 ta noto'g'ri parol bilan kirish urinishi:</span>
+<span class="g">→</span> 6 soniyada 200 ta — <span class="c">bittasi ham rad etilmadi</span></pre>
+      </div>
+      <div class="fix">
+        <span class="label">Tuzatish</span>
+        <span>Kirish, ro'yxatdan o'tish va parol tiklashga oddiy chegara.</span>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="finding-top">
+        <span class="sev m">O'rta</span>
+        <h3>11-qadam yozilgan, lekin commit qilinmagan va <em>umuman testsiz</em></h3>
+      </div>
+      <div class="finding-body">
+        <p>
+          Taklifnoma bilan kirish tizimi (kim ro'yxatdan o'ta oladi) kodda bor,
+          ishlayotgandek ko'rinadi — lekin unga tegishli birorta ham tekshiruv yo'q.
+          Kim akkaunt ocha olishini hal qiladigan qism uchun bu kam.
+        </p>
+      </div>
+      <div class="fix">
+        <span class="label">Tuzatish</span>
+        <span>Testlar yozilsin, keyin commit qilinsin.</span>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="finding-top">
+        <span class="sev m">O'rta</span>
+        <h3>Ikkita joyda begona ma'lumot sizib chiqishi mumkin</h3>
+      </div>
+      <div class="finding-body">
+        <p class="where">src/lib/dashboard/queries.ts:76 · src/lib/experiments/queries.ts:44</p>
+        <p>
+          Ikkalasi ham bitta so'rovda loyiha chegarasini qo'shishni unutgan.
+          Yolg'iz o'zi xavfli emas — lekin yuqoridagi zaxira muammosi bilan
+          birga ishlatilsa, begona ma'lumotning kichik qismi ko'rinadi.
+        </p>
+      </div>
+      <div class="fix">
+        <span class="label">Tuzatish</span>
+        <span>Ikkala so'rovga ham loyiha chegarasi qo'shilsin.</span>
+      </div>
+    </article>
+
+    <article class="finding">
+      <div class="finding-top">
+        <span class="sev m">O'rta</span>
+        <h3>CSP va HSTS sarlavhalari yo'q</h3>
+      </div>
+      <div class="finding-body">
+        <p>
+          To'rtta himoya sarlavhasi bor, ikkitasi yo'q. Kodda «auth va tashqi
+          skriptlar aniq bo'lgach qo'shiladi» deb yozilgan — ikkalasi ham endi aniq.
+        </p>
+      </div>
+      <div class="fix">
+        <span class="label">Tuzatish</span>
+        <span>Paddle skriptiga ruxsat beruvchi CSP, va HTTPS majburiyati.</span>
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Nima yaxshi ishladi</h2>
+      <p>Sindirishga urinib ko'rdim va sindirolmadim. Bular ham natija.</p>
+    </div>
+
+    <div class="held">
+      <div class="held-row">
+        <span class="tick">✓</span>
+        <div>
+          Bir vaqtda 12 ta so'rov limitni buzolmadi
+          <span class="m">limit 3 → aynan 3 ta ishlatildi, 3 ta yozuv, 1 ta faol reja</span>
+        </div>
+      </div>
+      <div class="held-row">
+        <span class="tick">✓</span>
+        <div>
+          Brauzerga birorta ham maxfiy kalit tushmaydi
+          <span class="m">.next/static ichida sk- / re_ / pdl_ / DATABASE_URL — 0 ta topildi</span>
+        </div>
+      </div>
+      <div class="held-row">
+        <span class="tick">✓</span>
+        <div>
+          To'lov webhook'i soxta imzoni qabul qilmaydi
+          <span class="m">imzo, vaqt oynasi va takrorlanish — uchalasi ham tutadi</span>
+        </div>
+      </div>
+      <div class="held-row">
+        <span class="tick">✓</span>
+        <div>
+          Har bir so'rov va amal egalik tekshiruvidan o'tadi
+          <span class="m">zaxiradan tiklashdan tashqari — yuqoridagi 2-to'siq</span>
+        </div>
+      </div>
+      <div class="held-row">
+        <span class="tick">✓</span>
+        <div>
+          Testlar barqaror va bir-biriga bog'liq emas
+          <span class="m">814 ta tekshiruv / 23 to'plam · ketma-ket ikki marta bir xil</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Qanday tartibda</h2>
+      <p>Yuqoridan pastga. Har biri alohida commit, har biri avval qizil qilib ko'riladi.</p>
+    </div>
+
+    <ol class="order">
+      <li>Production tekshiruvini ishlash paytiga ko'chirish; dasturchi manzillarini build'dan chiqarib tashlash</li>
+      <li>Zaxiradan tiklashda hamma jadvalga egalikni majburan yozish</li>
+      <li><code>testAiConnectionAction</code> ga login va limit qo'shish</li>
+      <li>Ikkita chegarasiz so'rovni tuzatish</li>
+      <li>Urinishlar soniga chegara</li>
+      <li>CSP va HSTS</li>
+      <li>11-qadamga testlar, keyin commit</li>
+      <li>Hammasini qayta tekshirish — va bu QA'ni yana bir marta ishlatish</li>
+    </ol>
+  </section>
+
+  <footer>
+    Har bir to'siq shu mashinada bajarib ko'rilgan, taxmin qilinmagan.
+    Sinov ma'lumotlari tozalandi; 814 ta test QA'dan keyin ham yashil.
+  </footer>
+
+</div>

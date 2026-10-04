@@ -1,0 +1,1513 @@
+// LUMEN — database schema
+//
+// Two scoping boundaries, one inside the other. A Workspace is a customer's
+// cabinet and the isolation boundary: nothing crosses it. A Project is one
+// business inside that cabinet, and it is what every business record hangs off
+// — each carries a `projectId` and cascades from it.
+//
+// Only Project and the two workspace-level tables (Settings, WeeklyPlan) carry
+// a `workspaceId`. Everything else reaches its workspace through its project,
+// because a second copy of that answer is a second thing that can disagree.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Lists are real `text[]` columns. They were JSON strings under SQLite, which has
+// no array type; the encoding lived at the data-access boundary so no feature
+// code ever saw it. On PostgreSQL that boundary is gone — Prisma returns
+// `string[]` directly, and `src/lib/json-list.ts` survives only so the migration
+// script can still read the old SQLite encoding.
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// How far along the business is. Drives which guidance is relevant later.
+enum BusinessStage {
+  IDEA
+  PRE_LAUNCH
+  EARLY_TRACTION
+  SCALING
+  ESTABLISHED
+}
+
+/// The single outcome this business is optimising for right now.
+enum PrimaryGoal {
+  AWARENESS
+  ACQUISITION
+  ACTIVATION
+  RETENTION
+  REVENUE
+}
+
+/// Someone who can sign in.
+///
+/// The id is the identity provider's user id rather than one of ours, so there
+/// is exactly one identifier for a person and no second one to keep in step.
+/// Nothing here is a credential: passwords and sessions live with the provider,
+/// which is what keeps them out of this database and out of any backup.
+model User {
+  id    String @id
+  email String @unique
+
+  /// Non-null means this account is locked out.
+  ///
+  /// A timestamp rather than a boolean, so "when did we stop them" is
+  /// answerable without an audit table. Checked in the Data Access Layer, which
+  /// every request goes through — a flag checked at login only would leave an
+  /// already-open session working.
+  disabledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships     Membership[]
+  ownedWorkspaces Workspace[]
+  auditEvents     AuditEvent[]
+  productEvents   ProductEvent[]
+  agentRuns       AgentRun[]
+
+  @@map("users")
+}
+
+/// A customer's cabinet, and the isolation boundary of the whole product.
+///
+/// Every business record reaches its workspace through `Project.workspaceId`.
+/// A query that does not narrow to one workspace is a cross-tenant leak, not a
+/// missing convenience.
+model Workspace {
+  id   String @id @default(cuid())
+  name String
+
+  /// Who created it, and who to contact or bill. Authorisation never reads
+  /// this — it reads Membership — so the two cannot disagree about access.
+  ownerId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships Membership[]
+  projects    Project[]
+  auditEvents  AuditEvent[]
+  productEvents ProductEvent[]
+  settings     Settings?
+  weeklyPlans  WeeklyPlan[]
+  agentRuns    AgentRun[]
+  entitlements Entitlement[]
+  subscription Subscription?
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+/// Whether a member may administer the workspace or only use it.
+enum MembershipRole {
+  OWNER
+  MEMBER
+}
+
+/// The only thing that grants access to a workspace.
+///
+/// One row per person per cabinet. Every read and every write resolves through
+/// this table, so removing a row removes access completely — there is no second
+/// path to check and forget.
+model Membership {
+  id          String @id @default(cuid())
+  userId      String
+  workspaceId String
+
+  role MembershipRole @default(MEMBER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+  @@map("memberships")
+}
+
+/// A record that something meaningful happened, and who did it.
+///
+/// Written for actions whose history matters after the fact — marking work done
+/// or skipped, changing access, restoring data. Deliberately append-only: the
+/// application never updates or deletes a row here.
+model AuditEvent {
+  id          String @id @default(cuid())
+  workspaceId String
+
+  /// Null for something the system did on nobody's behalf.
+  actorId String?
+
+  /// A stable machine-readable verb, e.g. "task.completed".
+  action String
+
+  /// What it happened to. Free text rather than a relation, so an event
+  /// survives the thing it describes being deleted.
+  subjectType String?
+  subjectId   String?
+
+  detail Json?
+
+  createdAt DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([actorId])
+  @@map("audit_events")
+}
+
+/// A business managed in this LUMEN install.
+///
+/// Archiving is reversible and hides the project from day-to-day lists;
+/// deletion is permanent and, once child tables exist, will cascade. Both are
+/// kept because they answer different questions: "I'm done with this for now"
+/// versus "this should never have existed".
+/// A privacy-minimal record of a meaningful product action.
+///
+/// Product telemetry is kept separate from the operational audit trail so
+/// retention can be measured without mixing customer-state history with
+/// behavioural analytics. No page views or raw business text belong here.
+model ProductEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String?
+  projectId   String?
+  eventName   String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([eventName, createdAt])
+  @@index([workspaceId, eventName, createdAt])
+  @@map("product_events")
+}
+
+model Project {
+  id String @id @default(cuid())
+
+  /// The cabinet this business belongs to. Every other table reaches its
+  /// workspace through this column, which is why nothing else carries one:
+  /// a second copy is a second thing that can disagree.
+  workspaceId String
+
+  name        String
+  website     String?
+  industry    String
+  /// ISO 3166-1 alpha-2, where the business is based.
+  country     String
+  /// ISO 3166-1 alpha-2 / region codes the business sells into. May be empty.
+  targetMarkets String[] @default([])
+  description String?
+
+  businessStage BusinessStage
+  primaryGoal   PrimaryGoal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  /// Non-null means archived. Kept as a timestamp rather than a boolean so
+  /// "when did we stop working on this" is answerable without an audit table.
+  archivedAt DateTime?
+
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  businessProfile BusinessProfile?
+  agentRuns       AgentRun[]
+  conversations   Conversation[]
+  strategy        Strategy?
+  audienceSegments AudienceSegment[]
+  competitors      Competitor[]
+  marketInsights   MarketInsight[]
+  contentItems     ContentItem[]
+  campaigns        Campaign[]
+  budgetPlans      BudgetPlan[]
+  metrics          MarketingMetric[]
+  recommendations  Recommendation[]
+  googleConnection  GoogleConnection?
+  experiments      Experiment[]
+  weeklyPlans      WeeklyPlan[]
+  productEvents    ProductEvent[]
+
+  @@index([workspaceId])
+  @@index([archivedAt])
+  @@index([createdAt])
+  @@map("projects")
+}
+
+/// How the business makes money. Drives which playbooks apply later.
+enum BusinessModel {
+  B2B
+  B2C
+  B2B2C
+  D2C
+  MARKETPLACE
+  SUBSCRIPTION
+  ECOMMERCE
+  SERVICES
+  OTHER
+}
+
+/// Deep context about a business, gathered through a multi-step interview.
+///
+/// One-to-one with Project, and deliberately does NOT duplicate the fields
+/// Project already owns (name, website, industry, country, targetMarkets,
+/// businessStage, primaryGoal). The onboarding flow collects those too, but
+/// writes them to Project so there is exactly one source of truth. Read the two
+/// together via `getBusinessContext()`.
+///
+/// Every field here is nullable: onboarding autosaves partial drafts, so the
+/// database must accept an incomplete profile. Required-ness is enforced at
+/// completion time by the validation layer, not by the column definitions.
+model BusinessProfile {
+  id        String @id @default(cuid())
+  projectId String @unique
+
+  productOrService String?
+  businessModel    BusinessModel?
+  targetCustomers  String?
+
+  /// Channel codes.
+  currentMarketingChannels String[] @default([])
+  monthlyBudgetAmount      Int?
+  monthlyBudgetCurrency    String?
+
+  /// Challenge codes.
+  currentChallenges String[] @default([])
+  /// Free-text competitor names.
+  knownCompetitors  String[] @default([])
+
+  linkedinUrl  String?
+  xUrl         String?
+  instagramUrl String?
+  facebookUrl  String?
+  youtubeUrl   String?
+  tiktokUrl    String?
+
+  /// Brand-voice trait codes.
+  brandVoice String[] @default([])
+  notes      String?
+
+  /// Highest step the person has reached, so onboarding can be resumed.
+  lastStep    Int       @default(0)
+  /// Non-null once every required field has passed validation.
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("business_profiles")
+}
+
+/// Lifecycle of a single agent invocation.
+enum AgentRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+}
+
+/// One agent invocation, recorded whether it succeeded or not.
+///
+/// Written before the provider is called and updated on settle, so a run that
+/// crashes the process still leaves a RUNNING row behind rather than vanishing.
+///
+/// This table is the whole basis of cost accounting and the usage limit, which
+/// is why it carries the workspace and the user rather than only the project.
+/// A limit counted by joining through projects would break the moment a project
+/// is deleted — and deleting a project must not erase the record that its AI
+/// calls were made and paid for.
+model AgentRun {
+  id        String @id @default(cuid())
+  projectId String
+
+  /// Who this ran for. Denormalised on purpose — see above.
+  workspaceId String?
+  /// Null for something the system ran on nobody's behalf.
+  userId      String?
+
+  /// Which product feature asked, e.g. "weekly_plan". Coarser than agentType:
+  /// one feature may call several agents, and the bill is read by feature.
+  featureKey String?
+
+  agentType String
+  /// Short, human-readable description of the input. Never the raw prompt —
+  /// prompts can carry a lot of business detail and this table is for auditing
+  /// what ran, not for storing a second copy of the context.
+  inputSummary String
+  output       Json?
+
+  status   AgentRunStatus @default(RUNNING)
+  provider String
+  model    String
+
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+
+  /// Usage and reliability telemetry.
+  promptTokens     Int?
+  completionTokens Int?
+  latencyMs        Int?
+  attempts         Int @default(0)
+
+  /// What this run cost, in USD, computed server-side from the token counts
+  /// and the model's published rate. An estimate, and stored as one: the
+  /// provider's invoice is the truth, and the two will differ.
+  estimatedCostUsd Float?
+
+  /// Blocks a repeated request from becoming a second run. Unique, so the
+  /// database refuses the duplicate rather than the application remembering to.
+  /// Null for runs where repetition is harmless.
+  idempotencyKey String? @unique
+
+  /// Which prompt and which output contract produced this. Without them,
+  /// "answers got worse last Tuesday" is a complaint; with them it is a query.
+  promptVersion String?
+  schemaVersion String?
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, startedAt])
+  @@index([workspaceId, startedAt])
+  @@index([agentType])
+  @@index([status])
+  @@map("agent_runs")
+}
+
+/// What a workspace is allowed to consume, and how much it has.
+///
+/// One row per workspace per metered thing. Today there is exactly one key —
+/// AI runs per month — and the shape is general because billing writes to this
+/// table: a plan change moves the limit, and nothing else in the product has to
+/// know that billing exists.
+///
+/// `used` is a counter rather than a count of AgentRun rows, deliberately. A
+/// limit derived by counting is a limit that changes when history is deleted,
+/// and it costs a scan on every AI call. This is incremented once per run, in
+/// the same transaction that records the run.
+model Entitlement {
+  id          String @id @default(cuid())
+  workspaceId String
+
+  /// A stable machine-readable name, e.g. "ai.runs.monthly".
+  key   String
+  limit Int
+  used  Int @default(0)
+
+  /// The window `used` counts. Rolled forward on first use after it ends,
+  /// rather than by a scheduled job — a limit that depends on cron running is
+  /// a limit that silently stops existing when cron does not.
+  periodStart DateTime @default(now())
+  periodEnd   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@map("entitlements")
+}
+
+/// Who produced a message.
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+/// A chat thread, always scoped to one project.
+model Conversation {
+  id        String @id @default(cuid())
+  projectId String
+
+  /// Derived from the opening question so threads are findable without titling.
+  title String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([projectId, updatedAt])
+  @@map("conversations")
+}
+
+/// One turn in a conversation.
+///
+/// Assistant turns store the structured answer as JSON in `structured` and a
+/// plain-text rendering in `content`. Keeping both means the thread stays
+/// readable if the structured shape changes later, and history can be replayed
+/// to the model without re-deriving prose from JSON.
+model Message {
+  id             String @id @default(cuid())
+  conversationId String
+
+  role       MessageRole
+  content    String
+  structured Json?
+
+  /// Links a reply back to the run that produced it, for auditing.
+  agentRunId String?
+
+  createdAt DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+/// Container for a project's marketing strategy. One per project.
+///
+/// Holds no content itself — every word lives in an immutable StrategyVersion,
+/// and this row only records which version is current. That split is what makes
+/// "never silently overwrite" enforceable: producing new content creates a new
+/// version and moves this pointer, so nothing is ever destroyed in place.
+model Strategy {
+  id        String @id @default(cuid())
+  projectId String @unique
+
+  currentVersionId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions StrategyVersion[]
+
+  @@map("strategies")
+}
+
+/// A complete strategy at a point in time.
+///
+/// `sections` is a JSON array of the fourteen sections defined by the product
+/// spec, each carrying its own text and provenance. It is JSON rather than
+/// fourteen columns because the section list is a product decision that will
+/// change, and a schema migration per editorial change is the wrong cost.
+model StrategyVersion {
+  id         String @id @default(cuid())
+  strategyId String
+
+  /// 1-based, unique per strategy, assigned in order.
+  version Int
+  /// Why this version exists: "Generated", "Positioning regenerated", etc.
+  note    String
+
+  sections Json
+  /// Claims ATLAS inferred rather than read from the profile.
+  assumptions        Json
+  /// What ATLAS would have needed to do better.
+  missingInformation Json
+
+  /// The run that produced it, or null for a version created by editing.
+  agentRunId String?
+
+  createdAt DateTime @default(now())
+
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@unique([strategyId, version])
+  @@index([strategyId, createdAt])
+  @@map("strategy_versions")
+}
+
+/// Whether a segment is described in business or consumer terms.
+enum AudienceKind {
+  B2B
+  B2C
+}
+
+/// Where a record's current content came from.
+///
+/// EDITED matters operationally: regeneration replaces AI records but never
+/// touches ones a person has written or adjusted, so editing a segment adopts
+/// it and protects it.
+enum RecordSource {
+  AI
+  MANUAL
+  EDITED
+  EXTERNAL
+}
+
+enum GoogleConnectionStatus {
+  CONNECTED
+  ERROR
+  REVOKED
+}
+
+/// A group of buyers who share a problem and buy for similar reasons.
+model AudienceSegment {
+  id        String @id @default(cuid())
+  projectId String
+
+  name        String
+  description String
+  kind        AudienceKind
+  /// Display order; lower is more important.
+  priority    Int          @default(0)
+
+  /// JSON string arrays. Stored as Json rather than five join tables because
+  /// they are descriptive lists that are always read whole.
+  painPoints        Json
+  motivations       Json
+  buyingTriggers    Json
+  objections        Json
+  preferredChannels Json
+  messagingAngles   Json
+
+  source       RecordSource @default(AI)
+  /// What this rests on, so an inferred segment is never mistaken for a known one.
+  evidenceNote String?
+  agentRunId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  icp      Icp?
+  personas Persona[]
+
+  @@index([projectId, priority])
+  @@map("audience_segments")
+}
+
+/// The ideal customer profile for one segment.
+///
+/// `attributes` is Json because a B2B profile (company size, industry, buying
+/// roles) and a B2C profile (life stage, income band, interests) have genuinely
+/// different shapes, and forcing both into one column set would leave half of
+/// them empty on every row.
+model Icp {
+  id        String @id @default(cuid())
+  segmentId String @unique
+
+  kind              AudienceKind
+  attributes        Json
+  /// Signals that someone fits this profile.
+  qualifyingSignals Json
+  /// Signals that they do not, which is the half people usually skip.
+  disqualifiers     Json
+
+  source    RecordSource @default(AI)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  segment AudienceSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@map("icps")
+}
+
+/// A representative individual within a segment.
+model Persona {
+  id        String @id @default(cuid())
+  segmentId String
+
+  name     String
+  role     String
+  snapshot String
+
+  goals      Json
+  painPoints Json
+  objections Json
+  channels   Json
+
+  source    RecordSource @default(AI)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  segment AudienceSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@index([segmentId])
+  @@map("personas")
+}
+
+/// What kind of market insight this is.
+enum InsightKind {
+  GAP
+  DIFFERENTIATION
+  OPPORTUNITY
+  THREAT
+  POSITIONING
+}
+
+/// A competitor, as recorded by the operator.
+///
+/// SCOUT has no internet access in this build, so every fact here is
+/// user-provided by construction. That is the point: an insight can only ever
+/// rest on something a person actually entered, never on a fact the model
+/// believes it knows about a named company.
+model Competitor {
+  id        String @id @default(cuid())
+  projectId String
+
+  name        String
+  website     String?
+  description String?
+
+  /// JSON string arrays — descriptive lists, always read whole.
+  strengths  Json
+  weaknesses Json
+
+  positioning    String?
+  pricingNotes   String?
+  marketingNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("competitors")
+}
+
+/// A conclusion SCOUT drew from the recorded competitor data.
+///
+/// The three-way distinction the spec requires is structural: `evidence` cites
+/// what the operator entered, `assumptions` names what SCOUT reasoned, and
+/// `unknowns` names what nobody knows yet. An insight cannot be stored without
+/// all three fields, so a confident-sounding conclusion always arrives with its
+/// footing visible.
+model MarketInsight {
+  id        String @id @default(cuid())
+  projectId String
+
+  kind   InsightKind
+  title  String
+  detail String
+
+  evidence    Json
+  assumptions Json
+  unknowns    Json
+
+  source     RecordSource @default(AI)
+  agentRunId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, kind])
+  @@map("market_insights")
+}
+
+/// Where a piece of content is published.
+enum ContentPlatform {
+  INSTAGRAM
+  TIKTOK
+  LINKEDIN
+  YOUTUBE
+  FACEBOOK
+  X
+  EMAIL
+  BLOG
+}
+
+/// What kind of artefact this is. Shapes how the body is written.
+enum ContentType {
+  POST
+  SHORT_VIDEO_SCRIPT
+  AD_COPY
+  EMAIL
+  ARTICLE
+  CREATIVE_BRIEF
+}
+
+/// Editorial lifecycle. Nothing here implies publishing — LUMEN does not post.
+enum ContentStatus {
+  IDEA
+  DRAFT
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+}
+
+/// One piece of content.
+///
+/// `hook`, `body` and `cta` are separate columns rather than one blob because
+/// they are edited, reused and judged independently — a good hook attached to a
+/// weak body is a fixable problem only if the two are addressable.
+model ContentItem {
+  id        String @id @default(cuid())
+  projectId String
+
+  platform  ContentPlatform
+  type      ContentType
+  status    ContentStatus   @default(IDEA)
+
+  /// What this piece is for, in the operator's terms.
+  objective String
+  /// Which audience segment it speaks to, as free text so it survives a
+  /// segment being renamed or deleted.
+  audience  String?
+  /// The content theme it belongs to.
+  pillar    String?
+
+  hook String?
+  body String?
+  cta  String?
+
+  /// Intent only. LUMEN never publishes anything.
+  scheduledAt DateTime?
+
+  source     RecordSource @default(AI)
+  agentRunId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([projectId, scheduledAt])
+  @@map("content_items")
+}
+
+/// Campaign lifecycle. Planning states only — LUMEN runs no ads.
+enum CampaignStatus {
+  DRAFT
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+/// A coordinated marketing push.
+///
+/// A planning object, not an ad account. LUMEN connects to no ad platform, so
+/// ACTIVE means the operator is running it elsewhere — nothing here spends
+/// money or touches a live campaign.
+model Campaign {
+  id        String @id @default(cuid())
+  projectId String
+
+  name      String
+  objective String
+  audience  String?
+  offer     String?
+
+  /// JSON string array of channel keys.
+  channels Json
+
+  /// Money is stored with its currency, never as a bare number.
+  totalBudgetAmount   Int?
+  totalBudgetCurrency String?
+  /// JSON array of { channel, percent, amount, rationale }. Percentages are
+  /// normalised server-side so the split always totals the budget exactly.
+  budgetAllocation    Json
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  /// JSON string array of messaging angles.
+  messaging       Json
+  creativeConcept String?
+  landingPage     String?
+  /// JSON array of { metric, target, why }. Targets are the operator's to set;
+  /// ORBIT proposes what to measure, never what the result will be.
+  kpiFramework    Json
+  /// JSON string array describing the funnel stages.
+  funnel          Json
+
+  status CampaignStatus @default(DRAFT)
+
+  source     RecordSource @default(AI)
+  agentRunId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([projectId, startDate])
+  @@map("campaigns")
+}
+
+/// A saved marketing budget allocation.
+///
+/// `lines` is a JSON array of { category, amount, percent, why, role, risk,
+/// priority }. The invariant the spec demands — allocation always equals the
+/// total — is enforced server-side on every write, so a stored plan can never
+/// be internally inconsistent regardless of how it was produced.
+model BudgetPlan {
+  id        String @id @default(cuid())
+  projectId String
+
+  name     String
+  /// Whole units of currency. Money is never stored without its currency.
+  total    Int
+  currency String
+
+  /// Optional period label, e.g. "2026-10". Free text so quarters work too.
+  period String?
+
+  lines Json
+
+  /// What the plan is trying to achieve, carried from the project's goal.
+  goal String?
+
+  source     RecordSource @default(MANUAL)
+  agentRunId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("budget_plans")
+}
+
+/// One row of marketing performance, entered by hand.
+///
+/// Every number here was typed in by the operator — LUMEN connects to no ad
+/// platform and syncs nothing. `source` is retained so that when imports or
+/// integrations arrive later, existing rows remain identifiable as manual and
+/// the distinction never has to be reconstructed.
+///
+/// Counts are stored as entered. Derived metrics (CTR, CPC, CPL, conversion
+/// rate, CAC, ROAS) are never stored — they are computed on read, so a metric
+/// can never disagree with the numbers it came from.
+model MarketingMetric {
+  id        String @id @default(cuid())
+  projectId String
+
+  /// The day these numbers describe. Time is not meaningful here.
+  date    DateTime
+  channel String
+  /// Free text rather than a relation, so a metric survives its campaign being
+  /// renamed or deleted. Historical performance should not vanish with a plan.
+  campaign String?
+
+  /// Money, with its currency. Never a bare number.
+  spend    Int?
+  revenue  Int?
+  currency String?
+
+  impressions Int?
+  reach       Int?
+  clicks      Int?
+  leads       Int?
+  conversions Int?
+  customers   Int?
+
+  note String?
+
+  source RecordSource @default(MANUAL)
+  externalKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, date])
+  @@index([projectId, channel])
+  @@map("marketing_metrics")
+}
+
+enum RecommendationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RecommendationLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RecommendationStatus {
+  OPEN
+  ACCEPTED
+  IN_PROGRESS
+  DONE
+  DISMISSED
+}
+
+/// Something ASCEND thinks the business should do next.
+///
+/// `confidence` is paired with a required `confidenceReason`, and is clamped
+/// server-side against how much evidence actually exists. A recommendation
+/// drawn from a business profile alone cannot claim high confidence no matter
+/// what the model returns.
+model Recommendation {
+  id        String @id @default(cuid())
+  projectId String
+
+  title   String
+  /// What is happening.
+  insight String
+  /// Why it matters.
+  reason  String
+  /// What to do about it.
+  action  String
+
+  priority   RecommendationPriority @default(MEDIUM)
+  impact     RecommendationLevel    @default(MEDIUM)
+  effort     RecommendationLevel    @default(MEDIUM)
+  confidence RecommendationLevel    @default(LOW)
+  /// Why that confidence level, in the operator's terms. Required by design.
+  confidenceReason String
+
+  /// Which context sources this rests on, so the footing stays visible.
+  basedOn Json
+
+  status RecommendationStatus @default(OPEN)
+
+  source     RecordSource @default(AI)
+  agentRunId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  experiments Experiment[]
+
+  @@index([projectId, status])
+  @@index([projectId, priority])
+  @@map("recommendations")
+}
+
+enum ExperimentStatus {
+  IDEA
+  PLANNED
+  RUNNING
+  COMPLETED
+  CANCELLED
+}
+
+/// A growth experiment. Extended in the experiments phase; declared here
+/// because a recommendation can become one and the relation must be valid.
+model Experiment {
+  id        String @id @default(cuid())
+  projectId String
+
+  name           String
+  hypothesis     String
+  targetMetric   String
+  action         String
+  expectedResult String?
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  status ExperimentStatus @default(IDEA)
+
+  actualResult String?
+  /// What was learned. Feeds back into future AI context once recorded.
+  learning     String?
+
+  recommendationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendation Recommendation? @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@map("experiments")
+}
+
+/// One workspace's preferences.
+///
+/// This was a single row pinned to id "singleton", which was right while LUMEN
+/// ran locally for one operator and became a defect the moment two accounts
+/// could exist: currency, timezone and the default project are answers to
+/// "whose?", and one row cannot hold two answers.
+///
+/// `workspaceId` is unique, so the database enforces one row per cabinet rather
+/// than one row per install, and the cascade takes it when the workspace goes.
+///
+/// Deliberately holds no secrets. API keys live in the environment and are read
+/// server-side, which is what keeps them out of backups and out of any client
+/// bundle.
+
+/// Read-only Google connection for a project. The OAuth refresh token is
+/// encrypted at rest and never exposed to browser code. One connection powers
+/// both GA4 and Search Console.
+model GoogleConnection {
+  id        String @id @default(cuid())
+  projectId String @unique
+
+  status GoogleConnectionStatus @default(CONNECTED)
+
+  refreshTokenEncrypted String
+  scopes Json
+
+  analyticsPropertyId   String?
+  analyticsPropertyName String?
+  analyticsProperties   Json?
+
+  searchConsoleSiteUrl String?
+  searchConsoleSites   Json?
+
+  lastSyncAt DateTime?
+  lastError  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([status, lastSyncAt])
+  @@map("google_connections")
+}
+
+model Settings {
+  id          String @id @default(cuid())
+  workspaceId String @unique
+
+  /// Opened on start when set and still available.
+  defaultProjectId String?
+
+  currency String @default("USD")
+  timezone String @default("UTC")
+  /// Interface language. English-only today; stored so the architecture is
+  /// ready for translation without a schema change.
+  locale   String @default("en-US")
+
+  /// "dark" or "light". Dark is the product's default, not a fallback.
+  theme String @default("dark")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+/// Whether a plan is the one being worked on, or a superseded predecessor.
+enum WeeklyPlanStatus {
+  ACTIVE
+  SUPERSEDED
+}
+
+/// One week's marketing plan for one business.
+///
+/// This is the product. Everything else in LUMEN describes a business; this is
+/// the thing that hands its operator a short list of work they can actually do
+/// on Monday.
+///
+/// Regenerating never overwrites. A new plan is a new row with the next version
+/// number, and the previous one is marked SUPERSEDED with its tasks and their
+/// DONE/SKIPPED history intact — that history is the only honest record of what
+/// the business tried, and the next plan reads it as a signal.
+///
+/// `workspaceId` is carried here as well as on the project. It is redundant by
+/// the letter of the schema and deliberate in practice: usage limits and
+/// billing are counted per workspace, and a plan that cannot answer "whose?"
+/// without a join is a plan that will eventually be counted against the wrong
+/// account. It is always written from the project's workspace, never from
+/// anything a browser sent.
+model WeeklyPlan {
+  id          String @id @default(cuid())
+  workspaceId String
+  projectId   String
+
+  /// 1-based, unique per project, assigned in order.
+  version Int
+  status  WeeklyPlanStatus @default(ACTIVE)
+
+  /// The Monday this plan covers, pinned to UTC midnight — see src/lib/date.ts.
+  weekStart DateTime
+
+  /// Fingerprint of the inputs that produced it: profile, project and week.
+  /// Two plans with the same hash were asked the same question, which is how
+  /// "nothing has changed since last time" becomes answerable.
+  inputHash String
+
+  /// What produced it. Recorded on the plan and not only on the AgentRun,
+  /// because a regression in plan quality is investigated from the plan.
+  model         String
+  promptVersion String
+  agentRunId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     MarketingTask[]
+
+  @@unique([projectId, version])
+  @@index([workspaceId])
+  @@index([projectId, status])
+  @@map("weekly_plans")
+}
+
+/// Where a task stands. Three states and no more — see section 9 of the brief.
+enum MarketingTaskStatus {
+  TODO
+  DONE
+  SKIPPED
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+/// One thing to do this week.
+///
+/// Every column here answers a question an operator actually asks: what am I
+/// doing (title), why (why), how (steps), where (channel), what should happen
+/// (expectedResult). A task missing any of those is dropped before it is
+/// written — see src/lib/weekly-plan/guardrails.ts.
+model MarketingTask {
+  id     String @id @default(cuid())
+  planId String
+
+  title          String
+  /// Why this is worth the week's time, in the operator's terms.
+  why            String
+  /// The actual steps. Ordered, and at least one.
+  steps          String[] @default([])
+  /// A channel code from src/config/business-profile.ts.
+  channel        String
+  priority       TaskPriority        @default(MEDIUM)
+  /// What the operator should expect to see if it works. Not a promise.
+  expectedResult String
+
+  /// Position within the plan, so "most important first" survives a reload.
+  position Int @default(0)
+
+  status MarketingTaskStatus @default(TODO)
+
+  /// Set together, and only for DONE.
+  completedAt    DateTime?
+  completionNote String?
+
+  /// Set together, and only for SKIPPED.
+  skippedAt  DateTime?
+  skipReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plan     WeeklyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  evidence Evidence[]
+
+  @@index([planId, status])
+  @@index([planId, position])
+  @@map("marketing_tasks")
+}
+
+enum EvidenceConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+/// What a task rests on.
+///
+/// Separate from the task because a claim without its source is an assertion,
+/// and this product's whole posture is that advice states its footing. A task
+/// with no evidence is allowed and says so; a task with evidence carries the
+/// claim, where it came from and how much weight it deserves.
+model Evidence {
+  id     String @id @default(cuid())
+  taskId String
+
+  /// Null when the claim comes from the business's own recorded data rather
+  /// than from somewhere on the web.
+  sourceUrl   String?
+  sourceTitle String?
+  claim       String
+  fetchedAt   DateTime?
+  confidence  EvidenceConfidence @default(LOW)
+
+  createdAt DateTime @default(now())
+
+  task MarketingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("evidence")
+}
+
+/// Where a workspace stands with its subscription.
+///
+/// Mirrors Paddle's own statuses rather than inventing a simpler set, because
+/// the difference between "past due" and "canceled" is a difference in what the
+/// product should do, and collapsing them would erase it.
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELED
+}
+
+/// One workspace's subscription.
+///
+/// **Derived only from verified webhooks.** A browser returning from a
+/// successful checkout is not evidence of payment — it is a URL, and URLs can
+/// be typed. The redirect updates nothing; the webhook does.
+///
+/// One row per workspace, because the product sells one plan. `workspaceId` is
+/// unique so a second subscription for the same cabinet is refused by the
+/// database rather than producing two rows that disagree about what was bought.
+model Subscription {
+  id          String @id @default(cuid())
+  workspaceId String @unique
+
+  provider String @default("paddle")
+
+  /// Paddle's ids, kept so support questions can be answered and so a webhook
+  /// can find the workspace it belongs to when custom_data is absent.
+  providerCustomerId     String?
+  providerSubscriptionId String? @unique
+  priceId                String?
+
+  status SubscriptionStatus @default(TRIALING)
+
+  /// When the paid period ends. Shown to the person; never used to decide
+  /// access, because that would make access depend on our clock rather than on
+  /// what the provider last told us.
+  currentPeriodEnd DateTime?
+  canceledAt       DateTime?
+  /// Latest Paddle webhook event time applied to this subscription. Prevents
+  /// an older, out-of-order event from rolling the subscription backwards.
+  lastEventOccurredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+/// What happened to a webhook we received.
+enum WebhookStatus {
+  /// Applied. The subscription and entitlement reflect it.
+  PROCESSED
+  /// Understood, and deliberately not acted on — an event type we do not use.
+  IGNORED
+  /// Verified but could not be applied. Kept so it can be found and replayed.
+  FAILED
+}
+
+/// Every webhook the provider has sent, once.
+///
+/// `providerEventId` is unique, and that single constraint is what makes
+/// billing idempotent: a provider that retries — and Paddle does, for days —
+/// cannot grant the same entitlement twice, because the second insert is
+/// refused by the database before any of it is applied.
+///
+/// Deliberately holds no signature, no secret and no raw body. What is kept is
+/// enough to answer "did we get it, and what did we do", which is what an
+/// operator actually asks at two in the morning.
+model WebhookEvent {
+  id       String @id @default(cuid())
+  provider String @default("paddle")
+
+  /// The provider's own event id. Unique — see above.
+  providerEventId String @unique
+  type            String
+
+  status WebhookStatus @default(PROCESSED)
+  /// A short account of what was done, or why it was not.
+  result String?
+
+  /// Paddle's source-of-truth timestamp for event ordering.
+  occurredAt DateTime?
+
+  /// Which workspace it touched, if it named one.
+  workspaceId String?
+
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([type, receivedAt])
+  @@index([occurredAt])
+  @@map("webhook_events")
+}
+
+/// What happened to one outbound email.
+enum EmailStatus {
+  /// Handed to the provider, which accepted it.
+  SENT
+  /// The provider refused it, or could not be reached.
+  FAILED
+  /// Not sent, because email is not configured on this deployment.
+  SKIPPED
+}
+
+/// A record that an email was sent, and nothing about what it said.
+///
+/// Three things are deliberately absent, and their absence is the design:
+///
+/// **The address.** Only a hash of it. A support question — "did we email this
+/// person?" — is answerable by hashing the address you were given, and a copy
+/// of this table is not a mailing list.
+///
+/// **The body.** Emails carry confirmation links, reset tokens and business
+/// detail. A log that keeps the body is a second place every one of those can
+/// leak from, and it is the place nobody remembers to secure.
+///
+/// **The token.** Same reason, said twice because it is the one that ends in an
+/// account takeover.
+///
+/// What is kept is enough to answer the questions an operator actually asks:
+/// did it go, when, which template, and what did the provider call it.
+model EmailMessage {
+  id String @id @default(cuid())
+
+  /// sha256 of the lowercased address. Enough to correlate a support enquiry
+  /// without holding the address itself. Not proof against a dictionary attack
+  /// on a stolen database — the real protection is that the address is not
+  /// here at all.
+  recipientHash String
+  /// Which message this was, e.g. "welcome". Never the rendered text.
+  template      String
+
+  status EmailStatus @default(SENT)
+  /// The provider's own id, for matching against their dashboard.
+  providerMessageId String?
+  /// Why it failed, when it did. Provider text, truncated, never a token.
+  error             String?
+
+  /// Blocks a retried request from sending a second copy. Unique, so the
+  /// database refuses the duplicate rather than the application remembering to.
+  idempotencyKey String @unique
+
+  /// Which account it concerned, when it concerned one.
+  workspaceId String?
+
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([template, createdAt])
+  @@index([recipientHash])
+  @@map("email_messages")
+}
+
+/// A fixed-window counter for basic abuse protection on pre-auth endpoints —
+/// sign in, sign up, password reset — where there is no session yet to meter
+/// against. See `src/lib/security/rate-limit.ts`.
+///
+/// `key` names what is being limited (an action and, today, the caller's IP);
+/// `windowStart` names which fixed window this count belongs to. The pair is
+/// unique so concurrent requests in the same window increment one row rather
+/// than racing to create two — the same atomic-upsert shape
+/// `src/lib/usage/quota.ts` uses for the AI allowance, at a lower standard of
+/// precision: a burst at a window boundary can pass more attempts than the
+/// limit states, which is accepted here and would not be for billing.
+///
+/// No cron empties this table. `windowStart` rows old enough that nothing can
+/// still be reading them are deleted opportunistically by the code that
+/// writes new ones — the same principle as the usage period rolling forward
+/// on first use rather than on a schedule.
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@unique([key, windowStart])
+  @@index([windowStart])
+  @@map("rate_limit_buckets")
+}
+
+/// Where an invitation stands.
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+/// Permission for one address to create an account.
+///
+/// Lumen is invite-only during the beta, and this table is the whole gate.
+///
+/// **The token is not here.** Only its hash. An invite link is a credential —
+/// it creates an account — and a table of live credentials is exactly what a
+/// leaked backup should not contain. The token exists in the email and in the
+/// founder's clipboard, and nowhere else.
+///
+/// **One address.** The invite names who may use it, so a forwarded link does
+/// not become a second account. That also means an invite cannot be
+/// enumerated: guessing a token is useless without the address it was issued
+/// for.
+///
+/// `workspaceId` is null for the beta, where each person gets their own
+/// cabinet. Set, it means "join this one" — the shape a teammate invitation
+/// will need, without a schema change when that day comes.
+model Invite {
+  id String @id @default(cuid())
+
+  /// Lowercased on the way in, so `A@b.com` and `a@b.com` are one invite.
+  email     String
+  /// sha256 of the one-use token. See above.
+  tokenHash String @unique
+
+  workspaceId String?
+  invitedById String?
+
+  status InviteStatus @default(PENDING)
+
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  /// Which account it produced, so "who did we let in" is answerable.
+  acceptedByUserId String?
+  revokedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email, status])
+  @@index([status, expiresAt])
+  @@map("invites")
+}
+
+/// What a beta user told us.
+///
+/// Five questions, fixed, from the brief. Free-form feedback is what people
+/// send when they are angry; structured questions are what produce answers you
+/// can compare between users — which is the whole reason for running a beta
+/// with five of them rather than five hundred.
+model Feedback {
+  id          String  @id @default(cuid())
+  workspaceId String
+  userId      String?
+
+  /// Where onboarding lost them, or empty.
+  onboardingFriction String?
+  /// The task that was worth doing.
+  mostUseful         String?
+  /// The task that was wrong or unclear.
+  leastUseful        String?
+  /// Whether marking work done or skipped was easy.
+  statusEase         String?
+  /// Whether the product made marketing easier at all.
+  overall            String?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("feedback")
+}
