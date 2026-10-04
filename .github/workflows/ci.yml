@@ -26,6 +26,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Production dependencies only: dev tooling (eslint-config-next ->
+      # fast-glob -> micromatch -> braces) carries an advisory with no patched
+      # release, and it never ships or sees user input. See FIXES.md.
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build

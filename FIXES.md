@@ -48,6 +48,18 @@ Holat: `npm run lint`, `npm run typecheck`, `npm run build` — hammasi o'tadi (
 - 2 MB chunked body webhook'ga — 413.
 - Chromium (Playwright): ochiq va tizimga kirgan sahifalar, mobil menyu, cookie banner — konsol xatolari va CSP buzilishlari yo'q.
 
-## Qolgan
-- `eslint-config-next` → `fast-glob` → `micromatch` → `braces` (yuqori, faqat dev). Tuzatilgan `braces` versiyasi hali yo'q; lint vaqtidagina ishlaydi.
-- `style-src 'unsafe-inline'` ataylab qoldirildi (Radix UI `style` atributini JS orqali yozadi).
+## Uchinchi bosqich
+
+### CSP: uslublar
+- `style-src 'unsafe-inline'` olib tashlandi. Endi uslublar ikkiga bo'lingan:
+  - `style-src-elem` (`<style>`, stylesheet'lar) — faqat nonce, `'self'` va kutubxona o'zi qo'shadigan CSS'ning hash'i. Begona `<style>` bloki (CSS selektorlari orqali ma'lumot o'g'irlash yo'li) rad etiladi.
+  - `style-src-attr 'unsafe-inline'` — faqat `style="..."` atributlari. React `style` prop'ini serverda atribut sifatida chiqaradi, Radix menyularni shu yo'l bilan joylashtiradi. Atributda selektor bo'lmaydi, u sahifadan hech narsa o'qiy olmaydi.
+- `sonner` (toast) o'z CSS'ini `<style>` orqali qo'shadi; uning hash'i `scripts/csp-hashes.mjs` tomonidan har `npm run build` da `node_modules` dan qayta hisoblanadi (`src/config/csp-hashes.json`), shuning uchun kutubxona yangilansa hash eskirib qolmaydi.
+- Radix dialog/menyu skrollni bloklash uchun qo'shadigan `<style>` ga endi nonce beriladi (`get-nonce`, `src/instrumentation-client.ts`).
+- Zod brauzerda `Function("")` bilan `eval` borligini tekshirardi va har sahifada `script-src` buzilishi chiqardi; brauzerda JIT o'chirildi (`jitless`), server o'zgarmadi.
+- Chromium'da 20 ta sahifa, Radix menyulari tekshirildi: 0 ta CSP buzilishi, 0 ta konsol xatosi; toast CSS'i va shriftlar qo'llanadi.
+
+### `braces` zaifligi
+- `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` → `braces` (GHSA-vfj7-8cjw-p6xm). Tuzatilgan versiya mavjud emas — zaif diapazon `<=3.0.3`, eng oxirgi chiqarilgan versiya esa 3.0.3. Ishonchsiz fork bilan almashtirmadim.
+- Xavf yo'q: bu faqat lint vaqtida ishlaydigan dev paket, production'ga kirmaydi. U faqat sizning ESLint sozlamangizdagi `rootDir` glob'ini o'qiydi, foydalanuvchi kiritgan ma'lumotni emas.
+- CI'ga `npm audit --omit=dev --audit-level=high` qadami qo'shildi: production dependency'larida yangi zaiflik paydo bo'lsa, build to'xtaydi. `braces` uchun tuzatish chiqqach, `npm update` yetarli bo'ladi.
