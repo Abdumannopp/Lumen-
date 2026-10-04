@@ -10,20 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 export function AppShell({ children, topbarSlot, accountSlot, betaSlot, founder }: { children: React.ReactNode; topbarSlot?: React.ReactNode; accountSlot?: React.ReactNode; betaSlot?: React.ReactNode; founder?: boolean; }) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
-  const [drawerPath, setDrawerPath] = useState(pathname);
-
-  // Close the drawer when navigation lands, adjusting state during render
-  // rather than in an effect (https://react.dev/learn/you-might-not-need-an-effect).
-  if (drawerPath !== pathname) {
-    setDrawerPath(pathname);
-    setDrawerOpen(false);
-  }
+  // The drawer remembers the path it was opened on, so it is open only while
+  // that is still the current path: navigation closes it with no setState in
+  // an effect or during render.
+  const [drawerOpenOn, setDrawerOpenOn] = useState<string | null>(null);
+  const drawerOpen = drawerOpenOn === pathname;
+  const setDrawerOpen = (open: boolean) => setDrawerOpenOn(open ? pathname : null);
 
   useEffect(() => {
     if (!drawerOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setDrawerOpen(false); };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setDrawerOpenOn(null); };
     document.addEventListener("keydown", onKeyDown); document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", onKeyDown); document.body.style.overflow = ""; };
   }, [drawerOpen]);
