@@ -7,8 +7,6 @@ import { logger } from "@/lib/logger";
 export const PRODUCT_EVENTS = {
   PROJECT_CREATED: "project.created",
   ONBOARDING_COMPLETED: "onboarding.completed",
-  GOOGLE_CONNECTED: "analytics.google_connected",
-  ANALYTICS_SYNCED: "analytics.synced",
   ANALYTICS_METRIC_SAVED: "analytics.metric_saved",
   RECOMMENDATIONS_GENERATED: "recommendations.generated",
   RECOMMENDATION_STATUS_CHANGED: "recommendation.status_changed",

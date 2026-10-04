@@ -12,7 +12,6 @@ CREATE TYPE "AgentRunStatus" AS ENUM ('RUNNING', 'SUCCEEDED', 'FAILED', 'TIMED_O
 CREATE TYPE "MessageRole" AS ENUM ('USER', 'ASSISTANT');
 CREATE TYPE "AudienceKind" AS ENUM ('B2B', 'B2C');
 CREATE TYPE "RecordSource" AS ENUM ('AI', 'MANUAL', 'EDITED', 'EXTERNAL');
-CREATE TYPE "GoogleConnectionStatus" AS ENUM ('CONNECTED', 'ERROR', 'REVOKED');
 CREATE TYPE "InsightKind" AS ENUM ('GAP', 'DIFFERENTIATION', 'OPPORTUNITY', 'THREAT', 'POSITIONING');
 CREATE TYPE "ContentPlatform" AS ENUM ('INSTAGRAM', 'TIKTOK', 'LINKEDIN', 'YOUTUBE', 'FACEBOOK', 'X', 'EMAIL', 'BLOG');
 CREATE TYPE "ContentType" AS ENUM ('POST', 'SHORT_VIDEO_SCRIPT', 'AD_COPY', 'EMAIL', 'ARTICLE', 'CREATIVE_BRIEF');
@@ -483,27 +482,6 @@ CREATE TABLE IF NOT EXISTS "experiments" (
 );
 
 CREATE INDEX IF NOT EXISTS "experiments_projectId_status_idx" ON "experiments"("projectId", "status");
-
-CREATE TABLE IF NOT EXISTS "google_connections" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "projectId" TEXT NOT NULL,
-    "status" "GoogleConnectionStatus" NOT NULL DEFAULT 'CONNECTED'::"GoogleConnectionStatus",
-    "refreshTokenEncrypted" TEXT NOT NULL,
-    "scopes" JSONB NOT NULL,
-    "analyticsPropertyId" TEXT,
-    "analyticsPropertyName" TEXT,
-    "analyticsProperties" JSONB,
-    "searchConsoleSiteUrl" TEXT,
-    "searchConsoleSites" JSONB,
-    "lastSyncAt" TIMESTAMP(3),
-    "lastError" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "google_connections_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS "google_connections_projectId_key" ON "google_connections"("projectId");
-CREATE INDEX IF NOT EXISTS "google_connections_status_lastSyncAt_idx" ON "google_connections"("status", "lastSyncAt");
 
 CREATE TABLE IF NOT EXISTS "settings" (
     "id" TEXT NOT NULL PRIMARY KEY,

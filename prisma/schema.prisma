@@ -233,7 +233,6 @@ model Project {
   budgetPlans      BudgetPlan[]
   metrics          MarketingMetric[]
   recommendations  Recommendation[]
-  googleConnection  GoogleConnection?
   experiments      Experiment[]
   weeklyPlans      WeeklyPlan[]
   productEvents    ProductEvent[]
@@ -542,12 +541,6 @@ enum RecordSource {
   MANUAL
   EDITED
   EXTERNAL
-}
-
-enum GoogleConnectionStatus {
-  CONNECTED
-  ERROR
-  REVOKED
 }
 
 /// A group of buyers who share a problem and buy for similar reasons.
@@ -1042,37 +1035,6 @@ model Experiment {
 /// Deliberately holds no secrets. API keys live in the environment and are read
 /// server-side, which is what keeps them out of backups and out of any client
 /// bundle.
-
-/// Read-only Google connection for a project. The OAuth refresh token is
-/// encrypted at rest and never exposed to browser code. One connection powers
-/// both GA4 and Search Console.
-model GoogleConnection {
-  id        String @id @default(cuid())
-  projectId String @unique
-
-  status GoogleConnectionStatus @default(CONNECTED)
-
-  refreshTokenEncrypted String
-  scopes Json
-
-  analyticsPropertyId   String?
-  analyticsPropertyName String?
-  analyticsProperties   Json?
-
-  searchConsoleSiteUrl String?
-  searchConsoleSites   Json?
-
-  lastSyncAt DateTime?
-  lastError  String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([status, lastSyncAt])
-  @@map("google_connections")
-}
 
 model Settings {
   id          String @id @default(cuid())

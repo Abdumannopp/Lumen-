@@ -160,20 +160,6 @@ const serverSchema = z.object({
    * beta.
    */
   BETA_SIGNUP: z.enum(["invite", "open"]).default("invite"),
-
-  /**
-   * Google Analytics 4 and Search Console, read-only. Optional as a set — see
-   * the check below. Declared here because the schema strips unknown keys:
-   * without these lines the values were dropped at parse time and the
-   * integration reported itself unconfigured no matter what was set.
-   */
-  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
-  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
-  /** 32-byte AES-256-GCM key as 64 hexadecimal characters. */
-  INTEGRATION_ENCRYPTION_KEY: z
-    .string()
-    .regex(/^[0-9a-fA-F]{64}$/, "INTEGRATION_ENCRYPTION_KEY must be 64 hexadecimal characters (32 bytes).")
-    .optional(),
 }).superRefine((value, ctx) => {
   // Fail at boot rather than at the first agent call. A missing key is a
   // configuration mistake, and finding it on startup is far cheaper than
@@ -339,15 +325,6 @@ const serverSchema = z.object({
     if (paddleConfigured && value.PADDLE_ENVIRONMENT !== "production") {
       ctx.addIssue({ code: "custom", path: ["PADDLE_ENVIRONMENT"], message: "Production checkout must use PADDLE_ENVIRONMENT=production." });
     }
-  }
-
-  const googleValues = [value.GOOGLE_CLIENT_ID, value.GOOGLE_CLIENT_SECRET, value.INTEGRATION_ENCRYPTION_KEY];
-  if (googleValues.some(Boolean) && !googleValues.every(Boolean)) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["GOOGLE_CLIENT_ID"],
-      message: "Google integrations need GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and INTEGRATION_ENCRYPTION_KEY, or none of them.",
-    });
   }
 
   if (value.AUTH_PROVIDER === "local" && value.APP_ENV !== "local") {
