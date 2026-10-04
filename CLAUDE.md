@@ -17,6 +17,12 @@ English UI; invite-only beta.
 Do not add Ads, GA4, CRM, social publishing, multiple plans or additional UI
 languages.
 
+Known discrepancy, undecided: a read-only Google Analytics 4 + Search Console
+integration already exists (`src/lib/integrations/google/`, `google_connections`
+table, `/api/integrations/google/*`). It is inert unless `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET` and `INTEGRATION_ENCRYPTION_KEY` are all set. Do not
+extend it; whether it stays in the beta is the founder's call.
+
 # Non-negotiable Security
 
 Authorize every Server Action and Route Handler. Never trust client `userId` or
@@ -68,22 +74,46 @@ bash scripts/e2e-<name>.sh        # one suite; prints "N passed, M failed"
 `scripts/e2e-dates.sh` is timezone-sensitive by design. Run it a second time
 with the server started under `TZ=America/New_York` and it must pass identically.
 
-Baseline at the time of writing: typecheck clean, lint clean, build succeeds,
-**814 assertions passing across 23 suites, 0 failing**, against PostgreSQL 16.
-The suites are order- and state-independent: run the whole set twice in a row
-and the number is the same. A suite that mutates shared state puts it back.
-A change that lowers that number without an explicit reason is a regression.
+Baseline (2026-10-04): typecheck clean, lint clean, build succeeds,
+`npm run audit:production` PASS, **910 assertions passing across 26 suites,
+0 failing**, against PostgreSQL 16 — run twice in a row on the same database,
+same number. `scripts/e2e-dates.sh` also passes (22/0) under
+`TZ=America/New_York`. The suites are order- and state-independent. A suite
+that mutates shared state puts it back. A change that lowers that number
+without an explicit reason is a regression.
 
 The suites need `AUTH_PROVIDER=local`. `scripts/lib/session.sh` signs a test
 account up, follows its confirmation link and logs it in; every suite gets its
-workspace from `$LUMEN_WORKSPACE_ID`. No suite does its own auth.
+workspace from `$LUMEN_WORKSPACE_ID`. Suites that need a *second* account sign
+one in on purpose: `e2e-tenancy.sh` (`second@lumen.test`, to prove isolation),
+and `e2e-beta.sh` plus the `/admin` check in `e2e-ai-learning.sh` (the first
+`FOUNDER_EMAILS` address).
+
+The `.env` the suites expect, besides `DATABASE_URL`:
+
+- `AUTH_PROVIDER=local`, `AI_PROVIDER=mock`, `EMAIL_PROVIDER=log`, `APP_ENV=local`
+- `FOUNDER_EMAILS` set to an address that is **not** `suite@lumen.test` —
+  `e2e-beta.sh` asserts the suite account is not a founder
+- `PADDLE_NOTIFICATION_SECRET` set (`e2e-billing.sh` signs events with it)
+- `PADDLE_PRICE_ID` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` **unset** — the
+  billing suite asserts "checkout not configured". They must be set together
+  or not at all; `src/lib/env.ts` refuses to boot with only one.
+
+Start the server (`npm start`) only after `npm run build`, on a database made
+by `npm run setup` or `npm run db:deploy`.
+
+`npm run audit:production` is part of verification. Among other rules it
+rejects a render-time `setState` in `AppShell`
+(`if (...) { setX(...) }` in the component body); `react-hooks` lint rejects
+the effect-based alternative, so the drawer there derives its open state from
+the path it was opened on instead.
 
 ## Release blockers found by adversarial QA (2026-08-24) — closed 2026-09-06
 
 All three were reproduced on a running server rather than reasoned about, and
 all three were re-verified closed the same way — by reproducing the original
-exploit against a real build and confirming it now fails. Full e2e suite: 23
-suites, 848 assertions, 0 failures.
+exploit against a real build and confirming it now fails. (Full e2e suite at
+the time: 23 suites, 848 assertions, 0 failures. Current baseline is above.)
 
 1. ~~**Pre-auth account takeover when `NEXT_PUBLIC_APP_ENV` is set at runtime.**~~
    Next inlines `NEXT_PUBLIC_*` at BUILD time. Both `src/lib/env.ts` (the
@@ -148,20 +178,30 @@ suites, 848 assertions, 0 failures.
    attempts. Try again in 2 minutes." — matching the configured window
    exactly — and the underlying bucket row showed `count=13`.
 
-5. ~~**No CSP, no HSTS.**~~ `next.config.ts` now sends both globally. The
-   first CSP draft used a strict `script-src` with no `'unsafe-inline'`, on
-   the untested assumption that Next.js's own inline hydration scripts
-   wouldn't need it; a Playwright-driven Chromium check against a real build
-   proved that assumption wrong (`Refused to execute inline script...` on
-   every page, plus a React #412 hydration failure) before it ever shipped.
-   Next.js's own docs confirm the only strict alternative is a per-request
-   nonce through middleware, which forces every such page into dynamic
-   rendering — a bigger change than this pass is scoped for — so `script-src`
-   includes `'unsafe-inline'`, matching Next.js's own documented static
-   fallback. `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`,
-   `form-action 'self'`, and the Paddle/Supabase allowlists still hold.
-   Re-verified with the same Playwright script: zero console errors, zero CSP
-   violations, across `/login`, `/signup`, sign-in, and `/settings`.
+5. ~~**No CSP, no HSTS.**~~ Closed, then tightened 2026-10-04. The first draft
+   shipped `script-src 'unsafe-inline'` because a strict static policy broke
+   Next.js's inline hydration scripts (proven with Playwright: `Refused to
+   execute inline script...` plus React #412). The strict alternative is a
+   per-request nonce, and every HTML route here already renders dynamically, so
+   it costs nothing: `src/proxy.ts` generates a nonce per request and
+   `src/config/csp.ts` builds the policy for both the proxy and `next.config.ts`
+   (API routes). `script-src` is `'self' 'nonce-…' 'strict-dynamic'` plus the
+   Paddle host as a fallback; no `'unsafe-inline'`.
+   Styles are split: `style-src-elem` allows only `'self'`, the nonce and
+   content hashes of CSS a library injects itself
+   (`src/config/csp-hashes.json`, regenerated by `scripts/csp-hashes.mjs` on
+   every `npm run build`, so a library upgrade cannot leave a stale hash);
+   `style-src-attr` keeps `'unsafe-inline'` because React server-renders the
+   `style` prop as an attribute and Radix positions menus that way — an
+   attribute cannot carry selectors. `src/instrumentation-client.ts` hands the
+   nonce to `get-nonce` (Radix scroll-lock `<style>`) and runs zod `jitless` in
+   the browser so its `Function("")` probe does not report a violation.
+   `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`,
+   `form-action 'self'` and the Paddle/Supabase allowlists hold.
+   Re-verified in Chromium: 0 CSP violations and 0 console errors across 20
+   pages, Radix menus and the mobile drawer. **Adding a script, an injected
+   `<style>`, or a library that calls `document.createElement("style")` can
+   break this silently in tests that never run JS — check a real browser.**
 
 6. ~~**`/api/ai/selftest` unauthenticated, and worse than it looked.**~~ It
    was gated to the mock AI provider so it could never spend money, but
@@ -219,10 +259,16 @@ mismatched and stale signatures.
 
 - Baseline commit on `main` is the rollback point; SaaS work is on
   `saas-foundation`.
-- The database is **PostgreSQL**. There is still no Prisma migration history:
-  run `npm run db:migrate` once on a machine that can reach the engine download
-  to create the baseline. `npm run setup` applies the generated DDL instead,
-  for machines that cannot.
+- The database is **PostgreSQL**. `prisma/migrations/20261001000000_baseline`
+  creates the whole schema, so `npm run db:deploy` works on an empty database;
+  the two `20261004_*` migrations after it are idempotent. A database created
+  earlier with `npm run setup` or `db:push` must be marked once with
+  `npx prisma migrate resolve --applied 20261001000000_baseline` before
+  deploying. `npm run setup` applies the generated DDL instead, for machines
+  that cannot reach the Prisma engine download; `scripts/generate-sql.mjs`
+  emits tables in foreign-key dependency order (declaration order in
+  `schema.prisma` broke a fresh setup once). A new model needs both a
+  migration (`npm run db:migrate`) and `npm run db:sql`.
 - `npm run db:drift` reads a live database back and compares it to
   schema.prisma. Run it after any migration; it exits non-zero on disagreement.
 - `npm run db:import` copies an old SQLite database in. It reads a copy of the
@@ -308,6 +354,11 @@ mismatched and stale signatures.
 - `WebhookEvent.providerEventId` is unique, and that one constraint is what
   makes billing idempotent. Paddle retries for days. Claim the id *before*
   applying, not after.
+- A verified signature proves the event came from Paddle, not that it is for
+  *this* product: a seller account can sell other things to the same endpoint.
+  When `PADDLE_PRICE_ID` is set, `applyPaddleEvent` ignores any paid-status
+  event whose price is a different one (cancel/pause/past-due still apply, so
+  access can only shrink). The webhook body is read as a stream with a 1 MB cap.
 - Billing's entire effect on the product is one number: `Entitlement.limit`.
   Nothing else knows billing exists. Keep it that way.
 - Once a subscription id is known, our own record decides whose it is —
