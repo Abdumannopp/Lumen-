@@ -82,8 +82,8 @@ export const MODULES: ModuleDefinition[] = [
     label: "Analytics",
     icon: BarChart3,
     blurb: "What the numbers did, and why they moved.",
-    emptyTitle: "No data connected",
-    cta: "Connect a source",
+    emptyTitle: "No data recorded yet",
+    cta: "Enter your numbers",
     href: "/analytics",
   },
   {

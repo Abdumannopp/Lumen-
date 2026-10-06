@@ -37,7 +37,7 @@ ID_DEL=$(aid deleteMetricAction)
 
 echo "===== 1. EMPTY STATE, NO FAKE DATA ====="
 P=$(curl -s -c $JAR -b $JAR "$BASE/analytics")
-check  "spec empty state"       "No data connected"        "$P"
+check  "spec empty state"       "No data recorded yet"     "$P"
 check  "states no integration"  "connects to no ad platform" "$P"
 absent "no invented CTR value"  "2.4%"                     "$P"
 absent "no invented spend"      "1,250"                    "$P"

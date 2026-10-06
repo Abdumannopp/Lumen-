@@ -78,7 +78,7 @@ export default async function AnalyticsPage({
       <PageHeader
         eyebrow={project.name}
         title="Analytics"
-        description="What actually happened, from connected sources and numbers you entered."
+        description="What actually happened, from the numbers you entered."
       />
 
       <DateRangeControl from={toDayInput(range.from)} to={toDayInput(range.to)} />
@@ -86,7 +86,7 @@ export default async function AnalyticsPage({
       {totalRows === 0 ? (
         <EmptyState
           icon={<BarChart3 className="size-5" />}
-          title="No data connected"
+          title="No data recorded yet"
           description="Enter what you measured — spend, clicks, leads, customers — and Lumen derives the metrics that are valid from the data you have."
         />
       ) : summary.rowCount === 0 ? (

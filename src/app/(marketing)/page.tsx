@@ -35,7 +35,7 @@ export default function LandingPage() {
           <div className="max-w-xl">
             <Badge variant="accent" className="rounded-full px-3 py-1">AI FOR REAL BUSINESS GROWTH</Badge>
             <h1 className="mt-6 text-5xl leading-[0.98] font-semibold sm:text-6xl lg:text-[4.65rem]">Turn your marketing data into <span className="text-gradient">real growth.</span></h1>
-            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">Lumen connects your data, finds the biggest opportunities, creates a weekly plan, and helps you get real results.</p>
+            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">Lumen reads the numbers you share, finds the biggest opportunities, creates a weekly plan, and helps you get real results.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row"><Button asChild size="lg"><Link href="/signup">Get started free <ArrowRight /></Link></Button><Button asChild size="lg" variant="outline"><Link href="#how-it-works">See how it works</Link></Button></div>
             <div className="mt-5 flex flex-wrap gap-4 text-xs font-medium text-muted-foreground"><span>✓ No credit card required</span><span>✓ Setup in 5 minutes</span><span>✓ Cancel anytime</span></div>
           </div>
