@@ -273,6 +273,20 @@ mismatched and stale signatures.
   emits tables in foreign-key dependency order (declaration order in
   `schema.prisma` broke a fresh setup once). A new model needs both a
   migration (`npm run db:migrate`) and `npm run db:sql`.
+- **Row level security is on for every table** (migration
+  `20261006_enable_row_level_security`; the generated DDL emits it per table).
+  Supabase publishes the `public` schema through its REST API and accepts the
+  anon key, which ships in the browser bundle, so a table without RLS can be
+  read and written by anyone. With RLS on and no policies that API sees
+  nothing, and the application is unaffected because Prisma connects as the
+  table owner, which RLS does not apply to. Consequences: never add
+  `FORCE ROW LEVEL SECURITY`; `DATABASE_URL` must name the owner (Supabase's
+  `postgres` role) or a `BYPASSRLS` role; **a migration that creates a table
+  must also run `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`**, and
+  `npm run db:drift` fails (`NO RLS`) if one does not. Verified 2026-10-06
+  with a non-superuser owner and a stand-in `anon` role: `anon` read 1 row
+  before, 0 after; all 26 e2e suites pass as that owner. Not verified against
+  a real Supabase project.
 - `npm run db:drift` reads a live database back and compares it to
   schema.prisma. Run it after any migration; it exits non-zero on disagreement.
 - `npm run db:import` copies an old SQLite database in. It reads a copy of the

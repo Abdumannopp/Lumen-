@@ -226,6 +226,11 @@ for (const model of dependencyOrder(models)) {
   out.push(`CREATE TABLE IF NOT EXISTS "${model.table}" (`);
   out.push(columns.join(",\n"));
   out.push(");");
+  // Supabase publishes every table in `public` through its REST API, reachable
+  // with the anon key that ships in the browser bundle. With RLS on and no
+  // policies, that API sees nothing; the application is unaffected because it
+  // connects as the table owner, which RLS does not apply to.
+  out.push(`ALTER TABLE "${model.table}" ENABLE ROW LEVEL SECURITY;`);
   out.push("");
 
   for (const field of model.fields.filter((f) => f.isUnique)) {

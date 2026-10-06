@@ -72,3 +72,13 @@ Founder qarori: GA4 va Search Console `CLAUDE.md` dagi MVP doirasiga kirmaydi.
 - Ataylab qoldirildi: `RecordSource.EXTERNAL`, `marketing_metrics.externalKey`, eski `product_events` qatorlari (jumladan `analytics.google_connected`).
 - Yuqoridagi "Runtime bug'lar" va "Xavfsizlik" bo'limlaridagi Google bilan bog'liq tuzatishlar (env sxemasi, OAuth `state` ga `userId`, Json maydonlari) endi kerak emas: ularning kodi yo'q.
 - `GLOBAL_LAUNCH.md` dagi "Gate 3 — data connectivity" ro'yxati MVPdan keyingi yo'l xaritasi bo'lib qoldi, o'zgartirilmadi.
+
+## Row level security (2026-10-06)
+
+Supabase `public` sxemasini REST API orqali ochadi va uni brauzerdagi ochiq `anon` kalit bilan chaqirish mumkin; RLS bo'lmasa, begona odam har qanday jadvalni o'qiy/yoza oladi. Loyihada RLS umuman yo'q edi.
+- Yangi migratsiya `20261006_enable_row_level_security`: `public` dagi barcha jadvallarda RLS yoqiladi (`_prisma_migrations` ham). Siyosat (policy) yo'q, ya'ni REST API hech narsa ko'rmaydi.
+- `scripts/generate-sql.mjs` har bir jadvaldan keyin `ENABLE ROW LEVEL SECURITY` chiqaradi (`npm run setup` yo'li).
+- `npm run db:drift` endi RLS'siz jadvalni xato deb qaytaradi (`NO RLS`).
+- `db:drift` skriptidagi eski kamchilik tuzatildi: `String[]` ustunlari `prisma migrate` yo'lida nullable, `setup` yo'lida NOT NULL bo'ladi; ikkalasi ham to'g'ri, ular endi taqqoslanmaydi.
+- Tekshirildi (superuser bo'lmagan baza egasi + `anon` roli bilan): `migrate deploy` (bo'sh baza), `npm run setup`, va RLS'siz eski bazani yangilash: uchalasida `anon` 0 qator ko'radi, drift toza. Barcha 26 e2e to'plami shu egasi bilan o'tdi.
+- Tekshirilmagan: haqiqiy Supabase loyihasi. U yerda `DATABASE_URL` `postgres` roli bilan bo'lishi kerak (Session pooler manzili shunday).

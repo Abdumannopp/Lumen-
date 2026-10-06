@@ -133,8 +133,12 @@ for (const model of models) {
       report(`TYPE           ${model.table}.${field.name} — schema ${expected}, database ${got}`);
     }
 
+    // Scalar lists (String[]) are never null in Prisma's model, but the two ways
+    // of creating the schema differ on the column: `prisma migrate` leaves it
+    // nullable, the generated DDL (`npm run setup`) says NOT NULL. Both work —
+    // Prisma always writes an array — so a list column is not held to either.
     const nullable = column.is_nullable === "YES";
-    if (field.optional !== nullable) {
+    if (!field.list && field.optional !== nullable) {
       report(
         `NULLABILITY    ${model.table}.${field.name} — schema ${field.optional ? "optional" : "required"}, database ${nullable ? "nullable" : "NOT NULL"}`,
       );
@@ -153,6 +157,17 @@ for (const table of actual.keys()) {
   if (!models.some((m) => m.table === table) && table !== "_prisma_migrations") {
     report(`EXTRA TABLE    ${table} — in the database, not in the schema`);
   }
+}
+
+// Row level security. Supabase exposes every table in `public` through its REST
+// API; RLS with no policies is what keeps the anon key (public by design) from
+// reading or writing them. A table without it is a data leak, so this is a
+// failure rather than a note.
+const unprotected = await client.query(
+  "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity ORDER BY tablename",
+);
+for (const row of unprotected.rows) {
+  report(`NO RLS         ${row.tablename} — row level security is off; run the latest migration`);
 }
 
 await client.end();

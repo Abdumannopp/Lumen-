@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS "users" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL
 );
+ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "users_email_key" ON "users"("email");
 
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS "workspaces" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "workspaces_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
+ALTER TABLE "workspaces" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "workspaces_ownerId_idx" ON "workspaces"("ownerId");
 
@@ -61,6 +63,7 @@ CREATE TABLE IF NOT EXISTS "memberships" (
     CONSTRAINT "memberships_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "memberships_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "memberships" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "memberships_userId_workspaceId_key" ON "memberships"("userId", "workspaceId");
 CREATE INDEX IF NOT EXISTS "memberships_workspaceId_idx" ON "memberships"("workspaceId");
@@ -77,6 +80,7 @@ CREATE TABLE IF NOT EXISTS "audit_events" (
     CONSTRAINT "audit_events_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "audit_events_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
+ALTER TABLE "audit_events" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "audit_events_workspaceId_createdAt_idx" ON "audit_events"("workspaceId", "createdAt");
 CREATE INDEX IF NOT EXISTS "audit_events_actorId_idx" ON "audit_events"("actorId");
@@ -97,6 +101,7 @@ CREATE TABLE IF NOT EXISTS "projects" (
     "archivedAt" TIMESTAMP(3),
     CONSTRAINT "projects_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "projects" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "projects_workspaceId_idx" ON "projects"("workspaceId");
 CREATE INDEX IF NOT EXISTS "projects_archivedAt_idx" ON "projects"("archivedAt");
@@ -114,6 +119,7 @@ CREATE TABLE IF NOT EXISTS "product_events" (
     CONSTRAINT "product_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "product_events_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
+ALTER TABLE "product_events" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "product_events_workspaceId_createdAt_idx" ON "product_events"("workspaceId", "createdAt");
 CREATE INDEX IF NOT EXISTS "product_events_eventName_createdAt_idx" ON "product_events"("eventName", "createdAt");
@@ -144,6 +150,7 @@ CREATE TABLE IF NOT EXISTS "business_profiles" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "business_profiles_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "business_profiles" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "business_profiles_projectId_key" ON "business_profiles"("projectId");
 
@@ -174,6 +181,7 @@ CREATE TABLE IF NOT EXISTS "agent_runs" (
     CONSTRAINT "agent_runs_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "agent_runs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
+ALTER TABLE "agent_runs" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_runs_idempotencyKey_key" ON "agent_runs"("idempotencyKey");
 CREATE INDEX IF NOT EXISTS "agent_runs_projectId_startedAt_idx" ON "agent_runs"("projectId", "startedAt");
@@ -193,6 +201,7 @@ CREATE TABLE IF NOT EXISTS "entitlements" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "entitlements_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "entitlements" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "entitlements_workspaceId_key_key" ON "entitlements"("workspaceId", "key");
 
@@ -204,6 +213,7 @@ CREATE TABLE IF NOT EXISTS "conversations" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "conversations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "conversations" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "conversations_projectId_updatedAt_idx" ON "conversations"("projectId", "updatedAt");
 
@@ -217,6 +227,7 @@ CREATE TABLE IF NOT EXISTS "messages" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "messages_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "messages" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "messages_conversationId_createdAt_idx" ON "messages"("conversationId", "createdAt");
 
@@ -228,6 +239,7 @@ CREATE TABLE IF NOT EXISTS "strategies" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "strategies_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "strategies" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "strategies_projectId_key" ON "strategies"("projectId");
 CREATE UNIQUE INDEX IF NOT EXISTS "strategies_currentVersionId_key" ON "strategies"("currentVersionId");
@@ -244,6 +256,7 @@ CREATE TABLE IF NOT EXISTS "strategy_versions" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "strategy_versions_strategyId_fkey" FOREIGN KEY ("strategyId") REFERENCES "strategies"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "strategy_versions" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "strategy_versions_strategyId_version_key" ON "strategy_versions"("strategyId", "version");
 CREATE INDEX IF NOT EXISTS "strategy_versions_strategyId_createdAt_idx" ON "strategy_versions"("strategyId", "createdAt");
@@ -268,6 +281,7 @@ CREATE TABLE IF NOT EXISTS "audience_segments" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "audience_segments_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "audience_segments" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "audience_segments_projectId_priority_idx" ON "audience_segments"("projectId", "priority");
 
@@ -283,6 +297,7 @@ CREATE TABLE IF NOT EXISTS "icps" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "icps_segmentId_fkey" FOREIGN KEY ("segmentId") REFERENCES "audience_segments"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "icps" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "icps_segmentId_key" ON "icps"("segmentId");
 
@@ -301,6 +316,7 @@ CREATE TABLE IF NOT EXISTS "personas" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "personas_segmentId_fkey" FOREIGN KEY ("segmentId") REFERENCES "audience_segments"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "personas" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "personas_segmentId_idx" ON "personas"("segmentId");
 
@@ -319,6 +335,7 @@ CREATE TABLE IF NOT EXISTS "competitors" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "competitors_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "competitors" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "competitors_projectId_createdAt_idx" ON "competitors"("projectId", "createdAt");
 
@@ -337,6 +354,7 @@ CREATE TABLE IF NOT EXISTS "market_insights" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "market_insights_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "market_insights" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "market_insights_projectId_kind_idx" ON "market_insights"("projectId", "kind");
 
@@ -359,6 +377,7 @@ CREATE TABLE IF NOT EXISTS "content_items" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "content_items_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "content_items" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "content_items_projectId_status_idx" ON "content_items"("projectId", "status");
 CREATE INDEX IF NOT EXISTS "content_items_projectId_scheduledAt_idx" ON "content_items"("projectId", "scheduledAt");
@@ -388,6 +407,7 @@ CREATE TABLE IF NOT EXISTS "campaigns" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "campaigns_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "campaigns" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "campaigns_projectId_status_idx" ON "campaigns"("projectId", "status");
 CREATE INDEX IF NOT EXISTS "campaigns_projectId_startDate_idx" ON "campaigns"("projectId", "startDate");
@@ -407,6 +427,7 @@ CREATE TABLE IF NOT EXISTS "budget_plans" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "budget_plans_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "budget_plans" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "budget_plans_projectId_createdAt_idx" ON "budget_plans"("projectId", "createdAt");
 
@@ -432,6 +453,7 @@ CREATE TABLE IF NOT EXISTS "marketing_metrics" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "marketing_metrics_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "marketing_metrics" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "marketing_metrics_externalKey_key" ON "marketing_metrics"("externalKey");
 CREATE INDEX IF NOT EXISTS "marketing_metrics_projectId_date_idx" ON "marketing_metrics"("projectId", "date");
@@ -457,6 +479,7 @@ CREATE TABLE IF NOT EXISTS "recommendations" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "recommendations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "recommendations" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "recommendations_projectId_status_idx" ON "recommendations"("projectId", "status");
 CREATE INDEX IF NOT EXISTS "recommendations_projectId_priority_idx" ON "recommendations"("projectId", "priority");
@@ -480,6 +503,7 @@ CREATE TABLE IF NOT EXISTS "experiments" (
     CONSTRAINT "experiments_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "experiments_recommendationId_fkey" FOREIGN KEY ("recommendationId") REFERENCES "recommendations"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
+ALTER TABLE "experiments" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "experiments_projectId_status_idx" ON "experiments"("projectId", "status");
 
@@ -495,6 +519,7 @@ CREATE TABLE IF NOT EXISTS "settings" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "settings_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "settings" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "settings_workspaceId_key" ON "settings"("workspaceId");
 
@@ -514,6 +539,7 @@ CREATE TABLE IF NOT EXISTS "weekly_plans" (
     CONSTRAINT "weekly_plans_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "weekly_plans_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "weekly_plans" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "weekly_plans_projectId_version_key" ON "weekly_plans"("projectId", "version");
 CREATE INDEX IF NOT EXISTS "weekly_plans_workspaceId_idx" ON "weekly_plans"("workspaceId");
@@ -538,6 +564,7 @@ CREATE TABLE IF NOT EXISTS "marketing_tasks" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "marketing_tasks_planId_fkey" FOREIGN KEY ("planId") REFERENCES "weekly_plans"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "marketing_tasks" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "marketing_tasks_planId_status_idx" ON "marketing_tasks"("planId", "status");
 CREATE INDEX IF NOT EXISTS "marketing_tasks_planId_position_idx" ON "marketing_tasks"("planId", "position");
@@ -553,6 +580,7 @@ CREATE TABLE IF NOT EXISTS "evidence" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "evidence_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "marketing_tasks"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "evidence" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "evidence_taskId_idx" ON "evidence"("taskId");
 
@@ -571,6 +599,7 @@ CREATE TABLE IF NOT EXISTS "subscriptions" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "subscriptions_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+ALTER TABLE "subscriptions" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "subscriptions_workspaceId_key" ON "subscriptions"("workspaceId");
 CREATE UNIQUE INDEX IF NOT EXISTS "subscriptions_providerSubscriptionId_key" ON "subscriptions"("providerSubscriptionId");
@@ -588,6 +617,7 @@ CREATE TABLE IF NOT EXISTS "webhook_events" (
     "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "processedAt" TIMESTAMP(3)
 );
+ALTER TABLE "webhook_events" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "webhook_events_providerEventId_key" ON "webhook_events"("providerEventId");
 CREATE INDEX IF NOT EXISTS "webhook_events_type_receivedAt_idx" ON "webhook_events"("type", "receivedAt");
@@ -605,6 +635,7 @@ CREATE TABLE IF NOT EXISTS "email_messages" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "sentAt" TIMESTAMP(3)
 );
+ALTER TABLE "email_messages" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "email_messages_idempotencyKey_key" ON "email_messages"("idempotencyKey");
 CREATE INDEX IF NOT EXISTS "email_messages_template_createdAt_idx" ON "email_messages"("template", "createdAt");
@@ -616,6 +647,7 @@ CREATE TABLE IF NOT EXISTS "rate_limit_buckets" (
     "windowStart" TIMESTAMP(3) NOT NULL,
     "count" INTEGER NOT NULL DEFAULT 0
 );
+ALTER TABLE "rate_limit_buckets" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "rate_limit_buckets_key_windowStart_key" ON "rate_limit_buckets"("key", "windowStart");
 CREATE INDEX IF NOT EXISTS "rate_limit_buckets_windowStart_idx" ON "rate_limit_buckets"("windowStart");
@@ -634,6 +666,7 @@ CREATE TABLE IF NOT EXISTS "invites" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL
 );
+ALTER TABLE "invites" ENABLE ROW LEVEL SECURITY;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "invites_tokenHash_key" ON "invites"("tokenHash");
 CREATE INDEX IF NOT EXISTS "invites_email_status_idx" ON "invites"("email", "status");
@@ -650,5 +683,6 @@ CREATE TABLE IF NOT EXISTS "feedback" (
     "overall" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE "feedback" ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS "feedback_workspaceId_createdAt_idx" ON "feedback"("workspaceId", "createdAt");
