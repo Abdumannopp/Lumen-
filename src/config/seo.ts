@@ -140,7 +140,7 @@ export const industryPages: MarketingSeoPage[] = [
       {
         title: "Make acquisition work visible",
         body:
-          "Connect supported analytics data or enter performance manually, then let Lumen surface changes worth acting on instead of producing another disconnected report.",
+          "Enter your performance figures, then let Lumen surface changes worth acting on instead of producing another disconnected report.",
         icon: BarChart3,
       },
       {

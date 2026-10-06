@@ -12,7 +12,7 @@ import { MarketingStructuredData } from "@/components/marketing/seo-json-ld";
 import { siteConfig } from "@/config/site";
 
 const steps = [
-  { icon: Target, title: "Connect your data", description: "Bring in the signals already living across analytics, search and your marketing stack." },
+  { icon: Target, title: "Share your numbers", description: "Tell Lumen about your business and enter the figures you already track: spend, clicks, leads and customers." },
   { icon: Sparkles, title: "Get AI recommendations", description: "Lumen finds the highest-value opportunity and turns it into a focused weekly plan." },
   { icon: Zap, title: "Take action", description: "Work through simple tasks, capture what happened, and keep the loop moving." },
   { icon: LineChart, title: "See real results", description: "Track the outcomes that matter and use them to shape the next week." },
